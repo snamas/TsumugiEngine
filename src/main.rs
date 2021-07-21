@@ -12,26 +12,26 @@ struct ObjectA{
 }
 impl ObjectA{
     fn spownticket(&self)-> ObjectATicket {
-        ObjectATicket { receive_object: self.input_item.clone(), itemhash: TypeId::of::<Backet>() }
+        ObjectATicket { receive_object: self.input_item.clone(), item: None, itemhash: TypeId::of::<Backet>() }
     }
 }
 
 struct ObjectATicket where{
     receive_object:Arc<Mutex<i32>>,
+    item:Option<Box<Backet>>,
     itemhash:TypeId
 }
 trait TsumugiFuture:TsumugiTypeChacher{
-    fn poll(self: &mut Self,receive_item:Box<dyn TsumugiTypeChacher+ Send>) -> Poll<Box<dyn TsumugiTypeChacher+ Send>>;
+    fn poll(self: &mut Self) -> Poll<()>;
     fn inputItem(self: &mut Self,inputItem: Box<dyn TsumugiTypeChacher+ Send>);
 }
 impl TsumugiFuture for ObjectATicket {
-    fn poll(self: &mut Self,mut receive_item:Box<dyn TsumugiTypeChacher+ Send>) -> Poll<Box<dyn TsumugiTypeChacher+ Send>> {
-        let movaditem = receive_item.as_any().downcast_mut::<Backet>().unwrap();
-        if let Some(item) = Some(1) {
+    fn poll(self: &mut Self) -> Poll<()> {
+        if let Some(movaditem) = &self.item {
             let mut rec_obj = self.receive_object.lock().unwrap();
              *rec_obj += movaditem.package;
             dbg!(*rec_obj);
-            return Poll::Ready(unsafe{Box::from_raw(movaditem)});
+            return Poll::Ready(());
         }else {
             return Poll::Pending;
         }
@@ -43,7 +43,8 @@ impl TsumugiFuture for ObjectATicket {
         let receive_item = unsafe {
             Box::from_raw(movaditem)
         };
-        self.poll(receive_item);
+        self.item = Option::from(receive_item);
+        self.poll();
     }
 }
 impl TsumugiTypeChacher for ObjectATicket {
@@ -80,9 +81,18 @@ fn main() {
     txsendbox.send(Box::new(Backet { package: 12 }));
     txsendbox.send(Box::new(Backet { package: 20 }));
     let handle = thread::spawn(move ||{
+
         let mut receiveList: Vec<_> =  rxreceivebox.try_iter().collect();
-        let mut sendList: Vec<_> =  rxsendbox.try_iter().collect();
         let mut receiveItem: Box<dyn TsumugiFuture + Send> = receiveList.pop().unwrap();
+        loop{
+            let mut sendList: Vec<_> =  rxsendbox.try_iter().collect();
+            while let Some(sendItem) = sendList.pop(){
+                if receiveItem.typehash() == sendItem.typehash(){
+                    receiveItem.inputItem(sendItem)
+                }
+            }
+        }
+        let mut sendList: Vec<_> =  rxsendbox.try_iter().collect();
         while let Some(sendItem) = sendList.pop(){
             if receiveItem.typehash() == sendItem.typehash(){
                 receiveItem.inputItem(sendItem)
@@ -91,6 +101,15 @@ fn main() {
         println!("endthread!");
 
     });
-    handle.join().unwrap();
+    loop{
+        let mut word = String::new();
+        std::io::stdin().read_line(&mut word).ok();
+        let answer = word.trim().to_string();
+        if answer =="end"{
+            break;
+
+        }
+        txsendbox.send(Box::new(Backet { package: 20 }));
+    }
     println!("Hello, world!");
 }
