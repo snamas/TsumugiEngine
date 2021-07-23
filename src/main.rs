@@ -14,12 +14,25 @@ impl ObjectA{
     fn spownticket(&self)-> ObjectATicket {
         ObjectATicket { receive_object: self.input_item.clone(), item: None, itemhash: TypeId::of::<Backet>() }
     }
+    fn spownTsumugiTicket(&self,channnel:Sender<Box<dyn TsumugiFuture+ Send>>)-> TsumugiTicket {
+        TsumugiTicket { receive_object: self.input_item.clone(), channel: channnel, item: None, baggettype: TypeId::of::<Backet>(), baggatlifetime: BaggetLifeTime::cold }
+    }
 }
-
+enum BaggetLifeTime{
+    shot,
+    cold
+}
 struct ObjectATicket where{
     receive_object:Arc<Mutex<i32>>,
     item:Option<Box<Backet>>,
     itemhash:TypeId
+}
+struct TsumugiTicket{
+    receive_object:Arc<Mutex<i32>>,
+    channel:Sender<Box<dyn TsumugiFuture+ Send>>,
+    item:Option<Box<Backet>>,
+    baggettype:TypeId,
+    baggatlifetime:BaggetLifeTime
 }
 trait TsumugiFuture:TsumugiTypeChacher{
     fn poll(self: &mut Self) -> Poll<()>;
