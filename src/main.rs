@@ -116,8 +116,8 @@ fn main() {
 
     let spown_object_a = ObjectA { input_item: Arc::new(Mutex::new(50)) };
     let mut receive_ticket = spown_object_a.spownticket();
-    tsumugiroot.receipt_channnel_sender.send(Box::new(receive_ticket));
-    tsumugiroot.pickup_channnel_sender.send(Box::new(Backet { package: 12 }));
+    tsumugiroot.local_channel_sender.receipt_channel_sender.send(Box::new(receive_ticket));
+    tsumugiroot.global_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 12 }));
     loop {
         let mut word = String::new();
         std::io::stdin().read_line(&mut word).ok();
@@ -125,11 +125,11 @@ fn main() {
         if answer == "end" {
             break;
         }
-        tsumugiroot.pickup_channnel_sender.send(Box::new(Backet { package: 13 }));
-        tsumugiObject.pickup_channnel_sender.send(Box::new(Backet { package: 14 }));
-        tsumugiObject.global_pickup_channnel_sender.send(Box::new(Backet { package: 15 }));
+        tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 13 }));
+        tsumugiObject.local_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 14 }));
+        tsumugiObject.global_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 15 }));
 
-        tsumugiroot.pickup_channnel_sender.send(Box::new(Backet2 { package: 16 }));
+        tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Backet2 { package: 16 }));
     }
     println!("Hello, world!");
 }

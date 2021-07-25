@@ -22,18 +22,17 @@ trait TsumugiObject {
 }
 
 pub struct TsumugiController {
-    pub pickup_channnel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
-    pub receipt_channnel_sender: Sender<Box<dyn TsumugiFuture + Send >>,
-    pub global_pickup_channnel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
-    pub global_receipt_channnel_sender: Sender<Box<dyn TsumugiFuture + Send >>,
+    pub local_channel_sender:TsumugiChannelSenders,
+    pub global_channel_sender:TsumugiChannelSenders,
     connect_tsumugi_controller: Vec<String>,
     pub global_connect_tsumugi_controller: Vec<Box<TsumugiController>>,
     tsumugi_controller_name: String,
     tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>
 }
-struct TsumugiSenderChannels{
-    pickup_channnel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
-    receipt_channnel_sender: Sender<Box<dyn TsumugiFuture + Send >>
+#[derive(Clone)]
+pub struct TsumugiChannelSenders{
+    pub pickup_channel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
+    pub receipt_channel_sender: Sender<Box<dyn TsumugiFuture + Send >>
 }
 pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
@@ -45,15 +44,14 @@ pub trait TsumugiControllerTrait {
 
 impl TsumugiControllerTrait for TsumugiController {
     fn new(tsumuginame: String) -> Box<TsumugiController> {
-        let (receipt_channnel_sender, receipt_channnel_receiver): (Sender<Box<dyn TsumugiFuture + Send>>, Receiver<Box<dyn TsumugiFuture + Send>>) = mpsc::channel();
-        let (pickup_channnel_sender, pickup_channnel_receiver): (Sender<Box<dyn TsumugiTypeChacher + Send>>, Receiver<Box<dyn TsumugiTypeChacher + Send>>) = mpsc::channel();
+        let (receipt_channel_sender, receipt_channnel_receiver): (Sender<Box<dyn TsumugiFuture + Send>>, Receiver<Box<dyn TsumugiFuture + Send>>) = mpsc::channel();
+        let (pickup_channel_sender, pickup_channnel_receiver): (Sender<Box<dyn TsumugiTypeChacher + Send>>, Receiver<Box<dyn TsumugiTypeChacher + Send>>) = mpsc::channel();
+        let tsumugiChannelSenders = TsumugiChannelSenders{pickup_channel_sender,receipt_channel_sender};
         let mut tsumugi_connect_list: Vec<String> = Vec::new();
         let mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>> = Vec::new();
         let mut tc = Box::new(TsumugiController {
-            pickup_channnel_sender: pickup_channnel_sender.clone(),
-            receipt_channnel_sender: receipt_channnel_sender.clone(),
-            global_pickup_channnel_sender: pickup_channnel_sender,
-            global_receipt_channnel_sender: receipt_channnel_sender,
+            local_channel_sender: tsumugiChannelSenders.clone(),
+            global_channel_sender: tsumugiChannelSenders,
             connect_tsumugi_controller: tsumugi_connect_list,
             global_connect_tsumugi_controller: vec![],
             tsumugi_controller_name: tsumuginame,
@@ -65,8 +63,7 @@ impl TsumugiControllerTrait for TsumugiController {
 
     fn spown(self:&Box<Self>, tsumuginame: String) -> Box<TsumugiController> {
         let mut tc = Self::new(tsumuginame);
-        tc.global_pickup_channnel_sender = self.global_pickup_channnel_sender.clone();
-        tc.global_receipt_channnel_sender = self.global_receipt_channnel_sender.clone();
+        tc.global_channel_sender = self.global_channel_sender.clone();
         return tc;
     }
 
