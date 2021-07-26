@@ -1,11 +1,12 @@
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 use std::task::Poll;
 use std::thread;
 use std::thread::JoinHandle;
 use std::pin::Pin;
 use std::marker::PhantomPinned;
+use std::collections::HashMap;
 
 pub trait TsumugiFuture: TsumugiTypeChacher {
     fn poll(self: &mut Self) -> Poll<()>;
@@ -17,16 +18,16 @@ pub trait TsumugiTypeChacher {
     fn typehash(&self) -> TypeId;
 }
 
-trait TsumugiObject {
-    fn on_create(&self);
+pub trait TsumugiObject {
+    fn on_create(&self,tc:&TsumugiController);
 }
 
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
     pub global_channel_sender:TsumugiChannelSenders,
     connect_tsumugi_controller: Vec<String>,
-    pub global_connect_tsumugi_controller: Vec<Box<TsumugiController>>,
-    tsumugi_controller_name: String,
+    pub global_connect_tsumugi_controller: Arc<Mutex<HashMap<String,Box<TsumugiController>>>>,
+    pub tsumugi_controller_name: String,
     tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>
 }
 #[derive(Clone)]
@@ -38,7 +39,7 @@ pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
     fn spown(self:&Box<Self>, tsumuginame: String) -> Box<TsumugiController>;
     fn set_object(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
-    fn execute_tsumugi_functions(&mut self, tsumugi_functions: &dyn Fn(&TsumugiController) -> Box<TsumugiController>);
+    fn execute_tsumugi_functions(self:&Box<Self>, tsumugi_functions:Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>);
     fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<Box<dyn TsumugiFuture + Send>>, pickup_channnel_receiver: Receiver<Box<dyn TsumugiTypeChacher + Send>>) -> JoinHandle<()>;
 }
 
@@ -53,7 +54,7 @@ impl TsumugiControllerTrait for TsumugiController {
             local_channel_sender: tsumugiChannelSenders.clone(),
             global_channel_sender: tsumugiChannelSenders,
             connect_tsumugi_controller: tsumugi_connect_list,
-            global_connect_tsumugi_controller: vec![],
+            global_connect_tsumugi_controller: Arc::new(Mutex::new(HashMap::new())),
             tsumugi_controller_name: tsumuginame,
             tsumugi_object_vector: tsumugi_object_list
         });
@@ -68,14 +69,20 @@ impl TsumugiControllerTrait for TsumugiController {
     }
 
     fn set_object(&mut self, mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>) {
+        for tsumugi_object in &tsumugi_object_list {
+            tsumugi_object.on_create(self);
+        }
         self.tsumugi_object_vector.append(&mut tsumugi_object_list);
     }
 
-    fn execute_tsumugi_functions(&mut self, tsumugi_function: &dyn Fn(&TsumugiController) -> Box<TsumugiController>) {
-        let mut tc_new = tsumugi_function(self);
-        self.global_connect_tsumugi_controller.push(tc_new);
+    fn execute_tsumugi_functions(self:&Box<Self>, create_tsumugi_controller_funclist: Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>) {
+        for tsumugi_function in create_tsumugi_controller_funclist {
+            let mut tc_new = tsumugi_function(self);
+            self.global_connect_tsumugi_controller.lock().unwrap().insert(tc_new.tsumugi_controller_name.clone(), tc_new as Box<TsumugiController>);
+        }
     }
     fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<Box<dyn TsumugiFuture + Send>>, pickup_channnel_receiver: Receiver<Box<dyn TsumugiTypeChacher + Send>>) -> JoinHandle<()> {
+
         thread::spawn(move || {
             let mut receiveList: Iter<Box<dyn TsumugiFuture + Send>> = receipt_channnel_receiver.iter();
             let mut tumugi_receipt_list: Vec<Box<dyn TsumugiFuture + Send>> = Vec::new();
@@ -93,10 +100,4 @@ impl TsumugiControllerTrait for TsumugiController {
         }
         )
     }
-}
-
-pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
-    let mut newtc = tc.spown("tsumugiobject".to_string());
-    newtc.set_object(Vec::new());
-    return newtc;
 }
