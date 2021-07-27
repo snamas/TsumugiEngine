@@ -1,20 +1,20 @@
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, Condvar};
 use std::task::Poll;
 use std::thread;
 use std::thread::JoinHandle;
 use std::pin::Pin;
 use std::marker::PhantomPinned;
 use std::collections::HashMap;
-
 pub trait TsumugiFuture: TsumugiTypeChacher {
     fn poll(self: &mut Self) -> Poll<()>;
-    fn input_item(self: &mut Self, input_item: Box<dyn TsumugiTypeChacher + Send>);
+    fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>);
 }
 
 pub trait TsumugiTypeChacher {
     fn as_any(&mut self) -> &mut dyn Any;
+    //todo:そうするとtypehashがいらんくなる
     fn typehash(&self) -> TypeId;
 }
 
@@ -30,10 +30,17 @@ pub struct TsumugiController {
     pub tsumugi_controller_name: String,
     tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>
 }
+//todo:ここらへんうまいことStruct ticketにする
 #[derive(Clone)]
 pub struct TsumugiChannelSenders{
     pub pickup_channel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
     pub receipt_channel_sender: Sender<Box<dyn TsumugiFuture + Send >>
+}
+pub struct TsumugiParcelHashList{
+    pickup_list_withid:HashMap<u64, Box<dyn TsumugiTypeChacher + Send >>,
+    receipt_list_withid:HashMap<u64,Box<dyn TsumugiFuture + Send >>,
+    pickup_list: Vec<Box<dyn TsumugiTypeChacher + Send >>,
+    receipt_list:Vec<Box<dyn TsumugiFuture + Send >>
 }
 pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
@@ -84,17 +91,51 @@ impl TsumugiControllerTrait for TsumugiController {
     fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<Box<dyn TsumugiFuture + Send>>, pickup_channnel_receiver: Receiver<Box<dyn TsumugiTypeChacher + Send>>) -> JoinHandle<()> {
 
         thread::spawn(move || {
-            let mut receiveList: Iter<Box<dyn TsumugiFuture + Send>> = receipt_channnel_receiver.iter();
+            //todo:うまいことロックを使いこなそうcondvarというやつをつかって
+            //todo:あとhashを値の管理に使う。
             let mut tumugi_receipt_list: Vec<Box<dyn TsumugiFuture + Send>> = Vec::new();
             let mut pickup_list: Vec<Box<dyn TsumugiTypeChacher + Send>> = Vec::new();
-            if let Some(mut receiveItem) = receiveList.next() {
-                loop {
-                    let mut sendList: Vec<_> = pickup_channnel_receiver.try_iter().collect();
-                    while let Some(sendItem) = sendList.pop() {
-                        if receiveItem.typehash() == sendItem.typehash() {
-                            receiveItem.input_item(sendItem);
+            let condvar = Condvar::new();
+            let mutex = Mutex::new(());
+            let lock = mutex.lock().unwrap();
+            //condvar.wait(lock).unwrap();
+            let mut tsumugi_hashmap_typeof:HashMap<TypeId,TsumugiParcelHashList> = HashMap::new();
+            loop {
+                let mut receipt_iter = receipt_channnel_receiver.try_iter();
+                while let Some(receiveItem) = receipt_iter.next() {
+                    let tsumugi_parcel_hash_list = TsumugiParcelHashList{
+                        pickup_list_withid: Default::default(),
+                        receipt_list_withid: Default::default(),
+                        pickup_list:vec![],
+                        receipt_list: vec![]
+                    };
+                    dbg!(receiveItem.typehash());
+                    let tsumugi_hash_typesep = tsumugi_hashmap_typeof.entry(receiveItem.typehash()).or_insert(tsumugi_parcel_hash_list);
+                    tsumugi_hash_typesep.receipt_list.push(receiveItem);
+                }
+                let mut pickup_iter  = pickup_channnel_receiver.try_iter();
+                while let Some(pickup_item) = pickup_iter.next() {
+                    let tsumugi_parcel_hash_list = TsumugiParcelHashList{
+                        pickup_list_withid: Default::default(),
+                        receipt_list_withid: Default::default(),
+                        pickup_list:vec![],
+                        receipt_list: vec![]
+                    };
+                    dbg!(pickup_item.typehash());
+                    let tsumugi_hash_typesep = tsumugi_hashmap_typeof.entry(pickup_item.typehash()).or_insert(tsumugi_parcel_hash_list);
+                    tsumugi_hash_typesep.pickup_list.push(pickup_item);
+                }
+                let mut i = 0;
+                for  tsumugi_hash in tsumugi_hashmap_typeof.iter_mut(){
+                    for pickupitem in tsumugi_hash.1.pickup_list.iter_mut(){
+                        for receiptitem in tsumugi_hash.1.receipt_list.iter_mut(){
+                            i = i+1;
+                            dbg!(i);
+                            receiptitem.input_item(pickupitem);
                         }
                     }
+                    //todo:ここpickupitemの性質（ずっと生存するか、その場限りかで消したり消さなかったりしたい。
+                    tsumugi_hash.1.pickup_list.clear();
                 }
             }
         }

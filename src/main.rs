@@ -73,8 +73,8 @@ impl TsumugiFuture for ObjectATicket {
         }
     }
 
-    fn input_item(&mut self, mut inputItem: Box<dyn TsumugiTypeChacher + Send>) {
-        let movaditem = inputItem.as_any().downcast_mut::<Backet>().unwrap();
+    fn input_item(&mut self,  inputItem: &mut Box<dyn TsumugiTypeChacher + Send>) {
+        let movaditem = (*inputItem).as_any().downcast_mut::<Backet>().unwrap();
         dbg!((*movaditem).package);
         let mut receive_item = unsafe {
             //ここでメモリリークするぞc0000374
@@ -84,9 +84,8 @@ impl TsumugiFuture for ObjectATicket {
         let optionitem = Option::from(boxitem);
         let receive_item = receive_item as Box<dyn TsumugiTypeChacher + Send>;
         //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。
-        std::mem::forget(inputItem);
         //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。
-        drop(receive_item);
+        std::mem::forget(receive_item);
         self.item = optionitem;
         self.poll();
     }
