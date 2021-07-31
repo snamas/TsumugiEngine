@@ -7,12 +7,14 @@ use std::thread::JoinHandle;
 use std::pin::Pin;
 use std::marker::PhantomPinned;
 use std::collections::HashMap;
-pub trait TsumugiFuture: TsumugiTypeChacher {
+pub trait TsumugiFuture: TsumugiTypeConverter {
     fn poll(self: &mut Self) -> Poll<()>;
+    fn on_get_parcel(self);
+}
+pub trait TsumugiTypeConverter:TsumugiTypeChacher{
     fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>);
 }
-
-pub trait TsumugiTypeChacher {
+pub trait TsumugiTypeChacher  {
     fn as_any(&mut self) -> &mut dyn Any;
     //todo:そうするとtypehashがいらんくなる
     fn typehash(&self) -> TypeId;
@@ -21,7 +23,6 @@ pub trait TsumugiTypeChacher {
 pub trait TsumugiObject {
     fn on_create(&self,tc:&TsumugiController);
 }
-
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
     pub global_channel_sender:TsumugiChannelSenders,
@@ -134,7 +135,7 @@ impl TsumugiControllerTrait for TsumugiController {
                             receiptitem.input_item(pickupitem);
                         }
                     }
-                    //todo:ここpickupitemの性質（ずっと生存するか、その場限りかで消したり消さなかったりしたい。
+                    //todo:ここpickupitemの性質（ずっと生存するか、その場限りかで消したり消さなかったりしたい。受け取る側で値を保持し続けていれば送る側は一回だけ送ればよくない？
                     tsumugi_hash.1.pickup_list.clear();
                 }
             }

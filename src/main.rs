@@ -6,7 +6,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use std::thread;
 use std::ops::BitAnd;
-use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiFuture, TsumugiTypeChacher, TsumugiObject};
+use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiFuture, TsumugiTypeChacher, TsumugiObject, TsumugiTypeConverter};
 
 struct ObjectA {
     input_item: Arc<Mutex<i32>>,
@@ -14,14 +14,11 @@ struct ObjectA {
 }
 
 impl ObjectA {
-    fn spownticket(&self) -> ObjectATicket {
-        ObjectATicket { receive_object: self.input_item.clone(), item: None, itemhash: TypeId::of::<Backet>() }
+    fn spownticket(&self) -> ObjectAntenna {
+        ObjectAntenna { receive_object: self.input_item.clone(), item: None, itemhash: TypeId::of::<Parcel>() }
     }
-    fn spownticketlocal(&self) -> ObjectATicket {
-        ObjectATicket { receive_object: self.input_item_local.clone(), item: None, itemhash: TypeId::of::<Backet>() }
-    }
-    fn spownTsumugiTicket(&self, channnel: Sender<Box<dyn TsumugiFuture + Send>>) -> TsumugiTicket {
-        TsumugiTicket { receive_object: self.input_item.clone(), channel: channnel, item: None, parceltype: TypeId::of::<Backet>(), parcellifetime: ParcelLifeTime::Shot }
+    fn spownticketlocal(&self) -> ObjectAntenna {
+        ObjectAntenna { receive_object: self.input_item_local.clone(), item: None, itemhash: TypeId::of::<Parcel>() }
     }
 }
 impl TsumugiObject for ObjectA{
@@ -47,21 +44,25 @@ enum ParcelLifeTime {
     Lifetime(i32),
 }
 
-struct ObjectATicket where {
+struct ObjectAntenna {
     receive_object: Arc<Mutex<i32>>,
-    item: Option<Box<Backet>>,
+    item: Option<Box<Parcel>>,
     itemhash: TypeId,
 }
 
-struct TsumugiTicket {
+struct ObjectReceiver {
     receive_object: Arc<Mutex<i32>>,
-    channel: Sender<Box<dyn TsumugiFuture + Send>>,
-    item: Option<Box<Backet>>,
-    parceltype: TypeId,
-    parcellifetime: ParcelLifeTime,
+    item: Option<Box<Parcel>>,
+
 }
 
-impl TsumugiFuture for ObjectATicket {
+struct TsumugiAntenna {
+    object_receiver:ObjectReceiver,
+    parceltype: TypeId,
+    parcellifetime: ParcelLifeTime,
+    on_change: dyn FnMut()
+}
+impl TsumugiFuture for ObjectAntenna {
     fn poll(self: &mut Self) -> Poll<()> {
         if let Some(movaditem) = self.item.take() {
             let mut rec_obj = self.receive_object.lock().unwrap();
@@ -72,12 +73,15 @@ impl TsumugiFuture for ObjectATicket {
             return Poll::Pending;
         }
     }
+    fn on_get_parcel(self) {
 
-    fn input_item(&mut self,  inputItem: &mut Box<dyn TsumugiTypeChacher + Send>) {
-        let movaditem = (*inputItem).as_any().downcast_mut::<Backet>().unwrap();
+    }
+}
+impl TsumugiTypeConverter for ObjectAntenna {
+    fn input_item(&mut self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>) {
+        let movaditem = (*input_item).as_any().downcast_mut::<Parcel>().unwrap();
         dbg!((*movaditem).package);
         let mut receive_item = unsafe {
-            //ここでメモリリークするぞc0000374
             Box::from_raw(movaditem)
         };
         let boxitem = receive_item.clone();
@@ -90,8 +94,7 @@ impl TsumugiFuture for ObjectATicket {
         self.poll();
     }
 }
-
-impl TsumugiTypeChacher for ObjectATicket {
+impl TsumugiTypeChacher for ObjectAntenna {
     fn typehash(&self) -> TypeId {
         self.itemhash
     }
@@ -101,11 +104,11 @@ impl TsumugiTypeChacher for ObjectATicket {
 }
 
 #[derive(Clone)]
-struct Backet {
+struct Parcel {
     package: i32,
 }
 
-impl TsumugiTypeChacher for Backet {
+impl TsumugiTypeChacher for Parcel {
     fn typehash(&self) -> TypeId {
         self.type_id()
     }
@@ -131,7 +134,7 @@ impl TsumugiTypeChacher for Backet2 {
 fn main() {
     let mut tsumugiroot = TsumugiController::new("Tsumugi".to_string());
     tsumugiroot.execute_tsumugi_functions(vec![Box::new(spown_object_controller)]);
-    tsumugiroot.global_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 12 }));
+    tsumugiroot.global_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 12 }));
     loop {
         let mut word = String::new();
         std::io::stdin().read_line(&mut word).ok();
@@ -139,9 +142,9 @@ fn main() {
         if answer == "end" {
             break;
         }
-        tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 13 }));
-        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().local_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 14 }));
-        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().global_channel_sender.pickup_channel_sender.send(Box::new(Backet { package: 15 }));
+        tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 13 }));
+        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().local_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 14 }));
+        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().global_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 15 }));
 
         tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Backet2 { package: 16 }));
     }
