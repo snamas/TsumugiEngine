@@ -9,7 +9,6 @@ use std::marker::PhantomPinned;
 use std::collections::HashMap;
 pub trait TsumugiFuture: TsumugiTypeConverter {
     fn poll(self: &mut Self) -> Poll<()>;
-    fn on_get_parcel(self);
 }
 pub trait TsumugiTypeConverter:TsumugiTypeChacher{
     fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>);
@@ -135,7 +134,7 @@ impl TsumugiControllerTrait for TsumugiController {
                             receiptitem.input_item(pickupitem);
                         }
                     }
-                    //todo:ここpickupitemの性質（ずっと生存するか、その場限りかで消したり消さなかったりしたい。受け取る側で値を保持し続けていれば送る側は一回だけ送ればよくない？
+                    //todo:ここpickupitemの性質（変更だけ受け取りたい場合もあるよ
                     tsumugi_hash.1.pickup_list.clear();
                 }
             }

@@ -7,6 +7,7 @@ use std::any::{Any, TypeId};
 use std::thread;
 use std::ops::BitAnd;
 use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiFuture, TsumugiTypeChacher, TsumugiObject, TsumugiTypeConverter};
+use std::rc::Rc;
 
 struct ObjectA {
     input_item: Arc<Mutex<i32>>,
@@ -20,20 +21,36 @@ impl ObjectA {
     fn spownticketlocal(&self) -> ObjectAntenna {
         ObjectAntenna { receive_object: self.input_item_local.clone(), item: None, itemhash: TypeId::of::<Parcel>() }
     }
+    fn spowntsumugiantenna(&self) -> TsumugiAntenna {
+        let itemlock = self.input_item.clone();
+        TsumugiAntenna{
+            parcel: None,
+            parceltype: TypeId::of::<Parcel>(),
+            parcellifetime: ParcelLifeTime::Shot,
+            parcel_name: None,
+            antenna_pack: None,
+            on_change: Box::new(move |parcel|{
+                let mut item = itemlock.lock().unwrap();
+                *item += parcel.package;
+                dbg!(*item);
+                return Poll::Ready(());
+            })
+        }
+    }
 }
 impl TsumugiObject for ObjectA{
     fn on_create(&self, tc: &TsumugiController){
-        let mut receive_ticket = self.spownticket();
+        let mut receive_ticket = self.spowntsumugiantenna();
         tc.global_channel_sender.receipt_channel_sender.send(Box::new(receive_ticket));
-        let mut receive_ticket = self.spownticketlocal();
-        tc.local_channel_sender.receipt_channel_sender.send(Box::new(receive_ticket));
+
     }
 }
 
 pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
     let mut newtc = tc.spown("tsumugiobject".to_string());
     newtc.set_object(vec![
-        Box::new(ObjectA { input_item: Arc::new(Mutex::new(200)), input_item_local: Arc::new(Mutex::new(0)) })
+        Box::new(ObjectA { input_item: Arc::new(Mutex::new(200)), input_item_local: Arc::new(Mutex::new(0)) }),
+        Box::new(ObjectA { input_item: Arc::new(Mutex::new(500)), input_item_local: Arc::new(Mutex::new(0)) })
     ]);
     return newtc;
 }
@@ -41,7 +58,9 @@ pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiContro
 enum ParcelLifeTime {
     Shot,
     Cold,
-    Lifetime(i32),
+    Lifetime(u32),
+    LifeCount(u32),
+    Update
 }
 
 struct ObjectAntenna {
@@ -57,10 +76,12 @@ struct ObjectReceiver {
 }
 
 struct TsumugiAntenna {
-    object_receiver:ObjectReceiver,
+    parcel:Option<Box<Parcel>>,
     parceltype: TypeId,
     parcellifetime: ParcelLifeTime,
-    on_change: dyn FnMut()
+    parcel_name: Option<String>,
+    antenna_pack:Option<Arc<Mutex<TsumugiAntenna>>>,
+    on_change: Box<dyn FnMut(Box<Parcel>) -> Poll<()> + Send>
 }
 impl TsumugiFuture for ObjectAntenna {
     fn poll(self: &mut Self) -> Poll<()> {
@@ -72,9 +93,6 @@ impl TsumugiFuture for ObjectAntenna {
         } else {
             return Poll::Pending;
         }
-    }
-    fn on_get_parcel(self) {
-
     }
 }
 impl TsumugiTypeConverter for ObjectAntenna {
@@ -103,6 +121,40 @@ impl TsumugiTypeChacher for ObjectAntenna {
     }
 }
 
+impl TsumugiFuture for TsumugiAntenna {
+    fn poll(self: &mut Self) -> Poll<()> {
+        if let Some(movaditem) = self.parcel.take() {
+            return self.on_change.as_mut()(movaditem);
+        } else {
+            return Poll::Pending;
+        }
+    }
+}
+impl TsumugiTypeConverter for TsumugiAntenna {
+    fn input_item(&mut self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>) {
+        let movaditem = (*input_item).as_any().downcast_mut::<Parcel>().unwrap();
+        dbg!((*movaditem).package);
+        let mut receive_item = unsafe {
+            Box::from_raw(movaditem)
+        };
+        let boxitem = receive_item.clone();
+        let optionitem = Option::from(boxitem);
+        let receive_item = receive_item as Box<dyn TsumugiTypeChacher + Send>;
+        //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。
+        //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。
+        std::mem::forget(receive_item);
+        self.parcel = optionitem;
+        self.poll();
+    }
+}
+impl TsumugiTypeChacher for TsumugiAntenna {
+    fn typehash(&self) -> TypeId {
+        self.parceltype
+    }
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
 #[derive(Clone)]
 struct Parcel {
     package: i32,
