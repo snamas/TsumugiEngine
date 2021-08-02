@@ -18,7 +18,7 @@ impl ObjectA {
     fn spowntsumugiantenna(&self) -> TsumugiAntenna {
         let itemlock = self.input_item.clone();
         TsumugiAntenna{
-            parcel:Box::from(ObjectReceiver{
+            parcel:Box::from(TsumugiParcelReceipter {
                 parcel: Option::from(Box::from(Parcel { package: 0 })),
                 on_change: Box::new(move |parcel|{
                     let mut item = itemlock.lock().unwrap();
@@ -51,13 +51,11 @@ pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiContro
     ]);
     return newtc;
 }
-
-struct ObjectReceiver {
-    parcel:Option<Box<Parcel>>,
-    on_change: Box<dyn FnMut(Box<Parcel>) -> Poll<()> + Send>
+struct TsumugiParcelReceipter<S:Send+Clone> {
+    parcel:Option<Box<S>>,
+    on_change: Box<dyn FnMut(Box<S>) -> Poll<()> + Send>
 }
-
-impl TsumugiFuture for ObjectReceiver {
+impl<T:Send+Clone> TsumugiFuture for TsumugiParcelReceipter<T> {
     fn poll(self: &mut Self) -> Poll<()> {
         if let Some(movaditem) = self.parcel.take() {
             return self.on_change.as_mut()(movaditem);
@@ -66,10 +64,9 @@ impl TsumugiFuture for ObjectReceiver {
         }
     }
 }
-impl TsumugiTypeConverter for ObjectReceiver {
+impl<T: 'static + TsumugiTypeChacher + Send+Clone> TsumugiTypeConverter for TsumugiParcelReceipter<T> {
     fn input_item(&mut self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>) {
-        let movaditem = (*input_item).as_any().downcast_mut::<Parcel>().unwrap();
-        dbg!((*movaditem).package);
+        let movaditem = (*input_item).as_any().downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)
         };
@@ -81,6 +78,38 @@ impl TsumugiTypeConverter for ObjectReceiver {
         self.parcel = Option::from(boxitem);
         self.poll();
     }
+}
+
+fn newReceiver<T: 'static>()-> Box<dyn TsumugiFuture> {
+    struct ObjectReceiver<S> {
+        parcel:Option<Box<S>>,
+        on_change: Box<dyn FnMut(Box<S>) -> Poll<()> + Send>
+    }
+    impl<T> TsumugiFuture for ObjectReceiver<T> {
+        fn poll(self: &mut Self) -> Poll<()> {
+            if let Some(movaditem) = self.parcel.take() {
+                return self.on_change.as_mut()(movaditem);
+            } else {
+                return Poll::Pending;
+            }
+        }
+    }
+    impl<T: 'static + TsumugiTypeChacher + Send+Clone> TsumugiTypeConverter for ObjectReceiver<T> {
+        fn input_item(&mut self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>) {
+            let movaditem = (*input_item).as_any().downcast_mut::<T>().unwrap();
+            let mut receive_item = unsafe {
+                Box::from_raw(movaditem)
+            };
+            let boxitem = receive_item.clone();
+            let receive_item = receive_item as Box<dyn TsumugiTypeChacher + Send>;
+            //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。
+            //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。
+            std::mem::forget(receive_item);
+            self.parcel = Option::from(boxitem);
+            self.poll();
+        }
+    }
+    Box::new(ObjectReceiver{ parcel: None, on_change: Box::new((|x:Box<T>|{return Poll::Ready(())})) })
 }
 #[derive(Clone)]
 struct Parcel {

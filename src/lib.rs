@@ -98,7 +98,7 @@ impl TsumugiControllerTrait for TsumugiController {
         }
         self.tsumugi_object_vector.append(&mut tsumugi_object_list);
     }
-
+    /// TsumugiController生成関数の配列を受け取ってそれを使ってTsumugiControllerを生成していくよ
     fn execute_tsumugi_functions(self:&Box<Self>, create_tsumugi_controller_funclist: Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>) {
         for tsumugi_function in create_tsumugi_controller_funclist {
             let mut tc_new = tsumugi_function(self);
