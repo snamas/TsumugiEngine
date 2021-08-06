@@ -57,6 +57,16 @@ pub struct TsumugiParcelDistributor {
     pub parcellifetime: ParcelLifeTime,
     pub parcel_name: Option<String>,
 }
+impl TsumugiParcelDistributor{
+    pub fn new<T: 'static + TsumugiTypeChacher + Send>(tsumugi_parcel:T)->Self{
+        TsumugiParcelDistributor{
+            parcel: Box::new(tsumugi_parcel),
+            parceltype: TypeId::of::<T>(),
+            parcellifetime: ParcelLifeTime::Shot,
+            parcel_name: None
+        }
+    }
+}
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
     pub global_channel_sender:TsumugiChannelSenders,
@@ -68,13 +78,13 @@ pub struct TsumugiController {
 
 #[derive(Clone)]
 pub struct TsumugiChannelSenders{
-    pub pickup_channel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
+    pub pickup_channel_sender: Sender<TsumugiParcelDistributor>,
     pub receipt_channel_sender: Sender<TsumugiAntenna>
 }
 pub struct TsumugiParcelHashList{
-    pickup_list_withid:HashMap<u64, Box<dyn TsumugiTypeChacher + Send >>,
+    pickup_list_withid:HashMap<u64, TsumugiParcelDistributor>,
     receipt_list_withid:HashMap<u64,TsumugiAntenna>,
-    pickup_list: Vec<Box<dyn TsumugiTypeChacher + Send >>,
+    pickup_list: Vec<TsumugiParcelDistributor>,
     receipt_list:Vec<TsumugiAntenna>
 }
 
@@ -115,13 +125,13 @@ pub trait TsumugiControllerTrait {
     fn spown(self:&Box<Self>, tsumuginame: String) -> Box<TsumugiController>;
     fn set_object(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
     fn execute_tsumugi_functions(self:&Box<Self>, tsumugi_functions:Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>);
-    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, pickup_channnel_receiver: Receiver<Box<dyn TsumugiTypeChacher + Send>>) -> JoinHandle<()>;
+    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()>;
 }
 
 impl TsumugiControllerTrait for TsumugiController {
     fn new(tsumuginame: String) -> Box<TsumugiController> {
         let (receipt_channel_sender, receipt_channnel_receiver): (Sender<TsumugiAntenna>, Receiver<TsumugiAntenna>) = mpsc::channel();
-        let (pickup_channel_sender, pickup_channnel_receiver): (Sender<Box<dyn TsumugiTypeChacher + Send>>, Receiver<Box<dyn TsumugiTypeChacher + Send>>) = mpsc::channel();
+        let (pickup_channel_sender, pickup_channnel_receiver): (Sender<TsumugiParcelDistributor>, Receiver<TsumugiParcelDistributor>) = mpsc::channel();
         let tsumugiChannelSenders = TsumugiChannelSenders{pickup_channel_sender,receipt_channel_sender};
         let mut tsumugi_connect_list: Vec<String> = Vec::new();
         let mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>> = Vec::new();
@@ -156,7 +166,7 @@ impl TsumugiControllerTrait for TsumugiController {
             self.global_connect_tsumugi_controller.lock().unwrap().insert(tc_new.tsumugi_controller_name.clone(), tc_new as Box<TsumugiController>);
         }
     }
-    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, pickup_channnel_receiver: Receiver<Box<dyn TsumugiTypeChacher + Send>>) -> JoinHandle<()> {
+    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()> {
 
         thread::spawn(move || {
             //todo:うまいことロックを使いこなそうcondvarというやつをつかって
@@ -189,8 +199,8 @@ impl TsumugiControllerTrait for TsumugiController {
                         pickup_list:vec![],
                         receipt_list: vec![]
                     };
-                    dbg!(pickup_item.typehash());
-                    let tsumugi_hash_typesep = tsumugi_hashmap_typeof.entry(pickup_item.typehash()).or_insert(tsumugi_parcel_hash_list);
+                    dbg!(pickup_item.parceltype);
+                    let tsumugi_hash_typesep = tsumugi_hashmap_typeof.entry(pickup_item.parceltype).or_insert(tsumugi_parcel_hash_list);
                     tsumugi_hash_typesep.pickup_list.push(pickup_item);
                 }
                 let mut i = 0;
@@ -199,7 +209,7 @@ impl TsumugiControllerTrait for TsumugiController {
                         for receiptitem in tsumugi_hash.1.receipt_list.iter_mut(){
                             i = i+1;
                             dbg!(i);
-                            receiptitem.parcel.input_item(pickupitem);
+                            receiptitem.parcel.input_item(&mut pickupitem.parcel);
                         }
                     }
                     //todo:ここpickupitemの性質（変更だけ受け取りたい場合もあるよ

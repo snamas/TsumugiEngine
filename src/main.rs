@@ -6,7 +6,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use std::thread;
 use std::ops::BitAnd;
-use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiFuture, TsumugiTypeChacher, TsumugiObject, TsumugiTypeConverter, TsumugiAntenna, ParcelLifeTime, TsumugiParcelReceipter, TsumugiChannelSenders, TsumugiAntennaTrait};
+use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiFuture, TsumugiTypeChacher, TsumugiObject, TsumugiTypeConverter, TsumugiAntenna, ParcelLifeTime, TsumugiParcelReceipter, TsumugiChannelSenders, TsumugiAntennaTrait, TsumugiParcelDistributor};
 use std::rc::Rc;
 
 struct ObjectA {
@@ -92,7 +92,7 @@ impl TsumugiTypeChacher for Backet2 {
 fn main() {
     let mut tsumugiroot = TsumugiController::new("Tsumugi".to_string());
     tsumugiroot.execute_tsumugi_functions(vec![Box::new(spown_object_controller)]);
-    tsumugiroot.global_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 12 }));
+    tsumugiroot.global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 12 }));
     loop {
         let mut word = String::new();
         std::io::stdin().read_line(&mut word).ok();
@@ -100,11 +100,11 @@ fn main() {
         if answer == "end" {
             break;
         }
-        tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 13 }));
-        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().local_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 14 }));
-        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().global_channel_sender.pickup_channel_sender.send(Box::new(Parcel { package: 15 }));
+        tsumugiroot.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 13 }));
+        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 14 }));
+        tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 15 }));
+        tsumugiroot.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Backet2 { package: 16 }));
 
-        tsumugiroot.local_channel_sender.pickup_channel_sender.send(Box::new(Backet2 { package: 16 }));
     }
     println!("Hello, world!");
 }
