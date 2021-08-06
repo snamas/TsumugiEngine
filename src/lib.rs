@@ -14,7 +14,6 @@ pub trait TsumugiTypeConverter{
     fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>);
 }
 pub trait TsumugiTypeChacher  {
-    //todo:そうするとtypehashがいらんくなる
     fn typehash(&self) -> TypeId;
     fn as_any(&mut self) -> &mut dyn Any ;
 }
@@ -22,7 +21,9 @@ pub trait TsumugiTypeChacher  {
 pub trait TsumugiObject {
     fn on_create(&self,tc:&TsumugiController);
 }
-
+pub trait TsumugiAntennaTrait<T: 'static,S: 'static>{
+    fn new(tsumugi_parcel_receipter:T) ->TsumugiAntenna;
+}
 pub enum ParcelLifeTime {
     Shot,
     Cold,
@@ -39,6 +40,23 @@ pub struct TsumugiAntenna {
     pub antenna_pack:Option<Arc<Mutex<TsumugiAntenna>>>
 }
 
+impl<S: 'static + Send + Clone + TsumugiTypeChacher> TsumugiAntennaTrait<TsumugiParcelReceipter<S>, S> for TsumugiAntenna{
+    fn new(tsumugi_parcel_receipter:TsumugiParcelReceipter<S>) ->TsumugiAntenna{
+        TsumugiAntenna{
+            parcel: Box::from(tsumugi_parcel_receipter),
+            parceltype: TypeId::of::<S>(),
+            parcellifetime: ParcelLifeTime::Shot,
+            parcel_name: None,
+            antenna_pack: None
+        }
+    }
+}
+pub struct TsumugiParcelDistributor {
+    pub parcel:Box<dyn TsumugiTypeChacher + Send>,
+    pub parceltype: TypeId,
+    pub parcellifetime: ParcelLifeTime,
+    pub parcel_name: Option<String>,
+}
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
     pub global_channel_sender:TsumugiChannelSenders,
@@ -47,7 +65,7 @@ pub struct TsumugiController {
     pub tsumugi_controller_name: String,
     tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>
 }
-//todo:ここらへんうまいことStruct ticketにする
+
 #[derive(Clone)]
 pub struct TsumugiChannelSenders{
     pub pickup_channel_sender: Sender<Box<dyn TsumugiTypeChacher + Send>>,
@@ -58,6 +76,39 @@ pub struct TsumugiParcelHashList{
     receipt_list_withid:HashMap<u64,TsumugiAntenna>,
     pickup_list: Vec<Box<dyn TsumugiTypeChacher + Send >>,
     receipt_list:Vec<TsumugiAntenna>
+}
+
+pub struct TsumugiParcelReceipter<S: Send + Clone + TsumugiTypeChacher> {
+    pub parcel: Box<S>,
+    pub on_change: Box<dyn FnMut(&Box<S>) -> Poll<()> + Send>,
+}
+
+impl<T: Send + Clone + TsumugiTypeChacher> TsumugiFuture for TsumugiParcelReceipter<T> {
+    fn poll(self: &mut Self) -> Poll<()> {
+        self.on_change.as_mut()(&self.parcel)
+    }
+}
+
+impl<T: 'static + TsumugiTypeChacher + Send + Clone> TsumugiTypeConverter for TsumugiParcelReceipter<T> {
+
+    fn input_item(&mut self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>) {
+        let movaditem = (*input_item).as_any().downcast_mut::<T>().unwrap();
+        let mut receive_item = unsafe {
+            Box::from_raw(movaditem)
+        };
+        let boxitem = receive_item.clone();
+        let receive_item = receive_item as Box<dyn TsumugiTypeChacher + Send>;
+        //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。
+        //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。
+        std::mem::forget(receive_item);
+        self.parcel = boxitem;
+        self.poll();
+    }
+}
+impl<T: 'static +  Send + Clone + TsumugiTypeChacher> TsumugiParcelReceipter<T>{
+    pub fn CreateTsumugiAntenna(self)->TsumugiAntenna{
+        TsumugiAntenna::new(self)
+    }
 }
 pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
