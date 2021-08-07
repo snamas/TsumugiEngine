@@ -6,9 +6,11 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use std::thread;
 use std::ops::BitAnd;
-use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiFuture, TsumugiTypeChacher, TsumugiObject, TsumugiTypeConverter, TsumugiAntenna, ParcelLifeTime, TsumugiParcelReceipter, TsumugiChannelSenders, TsumugiAntennaTrait, TsumugiParcelDistributor};
+use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiObject, TsumugiChannelSenders, };
 use std::rc::Rc;
-
+use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceipter};
+use tsumugiEngine::distributor::TsumugiParcelDistributor;
+use tsumugi_any::{TsumugiAnyTrait,TsumugiAny};
 struct ObjectA {
     input_item: Arc<Mutex<i32>>,
     input_item_local: Arc<Mutex<i32>>,
@@ -60,33 +62,14 @@ pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiContro
     return newtc;
 }
 
-#[derive(Clone)]
+#[derive(Clone,TsumugiAny)]
 struct Parcel {
     package: i32,
 }
 
-impl TsumugiTypeChacher for Parcel {
-    fn typehash(&self) -> TypeId {
-        self.type_id()
-    }
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone,TsumugiAny)]
 struct Backet2 {
     package: i32,
-}
-
-impl TsumugiTypeChacher for Backet2 {
-    fn typehash(&self) -> TypeId {
-        self.type_id()
-    }
-
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
 }
 
 fn main() {

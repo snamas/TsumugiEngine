@@ -1,3 +1,6 @@
+pub mod antenna;
+pub mod distributor;
+
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
 use std::sync::{mpsc, Arc, Mutex, Condvar};
@@ -7,66 +10,10 @@ use std::thread::JoinHandle;
 use std::pin::Pin;
 use std::marker::PhantomPinned;
 use std::collections::HashMap;
-pub trait TsumugiFuture {
-    fn poll(self: &mut Self) -> Poll<()>;
-}
-pub trait TsumugiTypeConverter{
-    fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>);
-}
-pub trait TsumugiTypeChacher  {
-    fn typehash(&self) -> TypeId;
-    fn as_any(&mut self) -> &mut dyn Any ;
-}
+use crate::antenna::{TsumugiAntenna, TsumugiFuture};
+use crate::distributor::TsumugiParcelDistributor;
+use tsumugi_any::{TsumugiAnyTrait};
 
-pub trait TsumugiObject {
-    fn on_create(&self,tc:&TsumugiController);
-}
-pub trait TsumugiAntennaTrait<T: 'static,S: 'static>{
-    fn new(tsumugi_parcel_receipter:T) ->TsumugiAntenna;
-}
-pub enum ParcelLifeTime {
-    Shot,
-    Cold,
-    Lifetime(u32),
-    LifeCount(u32),
-    Update
-}
-
-pub struct TsumugiAntenna {
-    pub parcel:Box<dyn TsumugiTypeConverter + Send>,
-    pub parceltype: TypeId,
-    pub parcellifetime: ParcelLifeTime,
-    pub parcel_name: Option<String>,
-    pub antenna_pack:Option<Arc<Mutex<TsumugiAntenna>>>
-}
-
-impl<S: 'static + Send + Clone + TsumugiTypeChacher> TsumugiAntennaTrait<TsumugiParcelReceipter<S>, S> for TsumugiAntenna{
-    fn new(tsumugi_parcel_receipter:TsumugiParcelReceipter<S>) ->TsumugiAntenna{
-        TsumugiAntenna{
-            parcel: Box::from(tsumugi_parcel_receipter),
-            parceltype: TypeId::of::<S>(),
-            parcellifetime: ParcelLifeTime::Shot,
-            parcel_name: None,
-            antenna_pack: None
-        }
-    }
-}
-pub struct TsumugiParcelDistributor {
-    pub parcel:Box<dyn TsumugiTypeChacher + Send>,
-    pub parceltype: TypeId,
-    pub parcellifetime: ParcelLifeTime,
-    pub parcel_name: Option<String>,
-}
-impl TsumugiParcelDistributor{
-    pub fn new<T: 'static + TsumugiTypeChacher + Send>(tsumugi_parcel:T)->Self{
-        TsumugiParcelDistributor{
-            parcel: Box::new(tsumugi_parcel),
-            parceltype: TypeId::of::<T>(),
-            parcellifetime: ParcelLifeTime::Shot,
-            parcel_name: None
-        }
-    }
-}
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
     pub global_channel_sender:TsumugiChannelSenders,
@@ -88,37 +35,8 @@ pub struct TsumugiParcelHashList{
     receipt_list:Vec<TsumugiAntenna>
 }
 
-pub struct TsumugiParcelReceipter<S: Send + Clone + TsumugiTypeChacher> {
-    pub parcel: Box<S>,
-    pub on_change: Box<dyn FnMut(&Box<S>) -> Poll<()> + Send>,
-}
-
-impl<T: Send + Clone + TsumugiTypeChacher> TsumugiFuture for TsumugiParcelReceipter<T> {
-    fn poll(self: &mut Self) -> Poll<()> {
-        self.on_change.as_mut()(&self.parcel)
-    }
-}
-
-impl<T: 'static + TsumugiTypeChacher + Send + Clone> TsumugiTypeConverter for TsumugiParcelReceipter<T> {
-
-    fn input_item(&mut self, input_item: &mut Box<dyn TsumugiTypeChacher + Send>) {
-        let movaditem = (*input_item).as_any().downcast_mut::<T>().unwrap();
-        let mut receive_item = unsafe {
-            Box::from_raw(movaditem)
-        };
-        let boxitem = receive_item.clone();
-        let receive_item = receive_item as Box<dyn TsumugiTypeChacher + Send>;
-        //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。
-        //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。
-        std::mem::forget(receive_item);
-        self.parcel = boxitem;
-        self.poll();
-    }
-}
-impl<T: 'static +  Send + Clone + TsumugiTypeChacher> TsumugiParcelReceipter<T>{
-    pub fn CreateTsumugiAntenna(self)->TsumugiAntenna{
-        TsumugiAntenna::new(self)
-    }
+pub trait TsumugiObject {
+    fn on_create(&self,tc:&TsumugiController);
 }
 pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
@@ -172,7 +90,7 @@ impl TsumugiControllerTrait for TsumugiController {
             //todo:うまいことロックを使いこなそうcondvarというやつをつかって
             //todo:あとhashを値の管理に使う。
             let mut tumugi_receipt_list: Vec<Box<dyn TsumugiFuture + Send>> = Vec::new();
-            let mut pickup_list: Vec<Box<dyn TsumugiTypeChacher + Send>> = Vec::new();
+            let mut pickup_list: Vec<Box<dyn TsumugiAnyTrait + Send>> = Vec::new();
             let condvar = Condvar::new();
             let mutex = Mutex::new(());
             let lock = mutex.lock().unwrap();
