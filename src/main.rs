@@ -26,9 +26,9 @@ impl ObjectA {
                 let mut item = itemlock.lock().unwrap();
                 *item += parcel.package;
                 dbg!(*item);
-                return TsumugiCurrentState::Fulfilled;
+                return TsumugiCurrentState::Pending;
             }),
-        }.CreateTsumugiAntenna()
+        }.create_tsumugi_antenna()
     }
 }
 struct Observer{

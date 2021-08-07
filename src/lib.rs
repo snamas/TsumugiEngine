@@ -9,7 +9,7 @@ use std::thread::JoinHandle;
 use std::pin::Pin;
 use std::marker::PhantomPinned;
 use std::collections::HashMap;
-use crate::antenna::{TsumugiAntenna, TsumugiFuture};
+use crate::antenna::{TsumugiAntenna, TsumugiFuture, TsumugiCurrentState};
 use crate::distributor::TsumugiParcelDistributor;
 use tsumugi_any::{TsumugiAnyTrait};
 
@@ -124,12 +124,11 @@ impl TsumugiControllerTrait for TsumugiController {
                 for  tsumugi_hash in tsumugi_hashmap_typeof.iter_mut(){
                     for pickupitem in tsumugi_hash.1.pickup_list.iter_mut(){
                         for receiptitem in tsumugi_hash.1.receipt_list.iter_mut(){
-                            i = i+1;
-                            dbg!(i);
-                            receiptitem.parcel.input_item(&mut pickupitem.parcel);
+                            receiptitem.current_state = receiptitem.parcel.input_item(&mut pickupitem.parcel);
                         }
                     }
                     //todo:ここpickupitemの性質（変更だけ受け取りたい場合もあるよ
+                    tsumugi_hash.1.receipt_list  = tsumugi_hash.1.receipt_list.drain(..).filter(|x| x.current_state != TsumugiCurrentState::Fulfilled).collect::<Vec<TsumugiAntenna>>();
                     tsumugi_hash.1.pickup_list.clear();
                 }
             }

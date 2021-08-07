@@ -2,11 +2,12 @@ use crate::TsumugiAnyTrait;
 use std::any::TypeId;
 
 pub enum ParcelLifeTime {
-    Shot,
-    Cold,
+    Flash,
+    Once,
+    Eternal,
     Lifetime(u32),
     LifeCount(u32),
-    Update
+    Update,
 }
 pub struct TsumugiParcelDistributor {
     pub parcel:Box<dyn TsumugiAnyTrait + Send>,
@@ -20,7 +21,7 @@ impl TsumugiParcelDistributor{
         TsumugiParcelDistributor{
             parcel: Box::new(tsumugi_parcel),
             parceltype: TypeId::of::<T>(),
-            parcellifetime: ParcelLifeTime::Shot,
+            parcellifetime: ParcelLifeTime::Once,
             parcel_name: None
         }
     }
