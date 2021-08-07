@@ -4,7 +4,6 @@ pub mod distributor;
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
 use std::sync::{mpsc, Arc, Mutex, Condvar};
-use std::task::Poll;
 use std::thread;
 use std::thread::JoinHandle;
 use std::pin::Pin;

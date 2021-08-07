@@ -1,14 +1,14 @@
 use std::future::Future;
 use std::sync::{Arc, Mutex, mpsc};
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{Context};
 use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use std::thread;
 use std::ops::BitAnd;
 use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiObject, TsumugiChannelSenders, };
 use std::rc::Rc;
-use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceipter};
+use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceipter,TsumugiCurrentState};
 use tsumugiEngine::distributor::TsumugiParcelDistributor;
 use tsumugi_any::{TsumugiAnyTrait,TsumugiAny};
 struct ObjectA {
@@ -26,7 +26,7 @@ impl ObjectA {
                 let mut item = itemlock.lock().unwrap();
                 *item += parcel.package;
                 dbg!(*item);
-                return Poll::Ready(());
+                return TsumugiCurrentState::Fulfilled;
             }),
         }.CreateTsumugiAntenna()
     }
