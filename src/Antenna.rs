@@ -2,27 +2,44 @@ use std::task::Poll;
 use std::any::{TypeId, Any};
 use crate::{TsumugiController};
 use std::sync::{Mutex, Arc};
-use tsumugi_any::TsumugiAnyTrait;
+use tsumugi_any::{TsumugiAnyTrait,TsumugiAny};
+use std::convert::TryInto;
 
-pub enum AntennalLifeTime {
-    Shot,
-    Cold,
+pub enum AntennaLifeTime {
+    Flash,
+    Once,
+    Eternal,
     Lifetime(u32),
     LifeCount(u32),
     Update,
 }
 
+#[derive(PartialEq)]
 pub enum TsumugiCurrentState {
+    Pending,
     Deny,
     Fulfilled,
     OnProgress,
 }
 
+pub enum TsumugiAntennaChainType {
+    And,
+    Or,
+    Next,
+    Not,
+}
+
+pub enum TsumugiAntennaChainVecType {
+    A(TsumugiAntenna),
+    AC(TsumugiAntennaChain),
+}
+
 pub struct TsumugiAntenna {
-    pub parcel: Box<dyn TsumugiTypeConverter + Send>,
+    pub parcel: Box<dyn TsumugiParcelInput + Send>,
     pub parceltype: TypeId,
-    pub parcellifetime: AntennalLifeTime,
+    pub parcellifetime: AntennaLifeTime,
     pub parcel_name: Option<String>,
+    pub current_state: TsumugiCurrentState,
     pub antenna_pack: Option<Arc<Mutex<TsumugiAntenna>>>,
 }
 
@@ -30,17 +47,36 @@ pub struct TsumugiParcelReceipter<S: Send + Clone + TsumugiAnyTrait> {
     pub parcel: Box<S>,
     pub on_change: Box<dyn FnMut(&Box<S>) -> TsumugiCurrentState + Send>,
 }
+pub struct TsumugiParcelReceipterReturnValue<S: Send + Clone + TsumugiAnyTrait> {
+    pub parcel: Box<S>,
+    pub on_change: Box<dyn FnMut(&Box<S>) -> TsumugiCurrentState + Send>,
+}
+impl<S: 'static +  Send + Clone + TsumugiAnyTrait> TsumugiAnyTrait for TsumugiParcelReceipter<S>{
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+//todo:あとで実装する。
+pub struct TsumugiAntennaChain {
+    pub antenna_chain: Vec<TsumugiAntennaChainVecType>,
+
+}
 
 pub trait TsumugiFuture {
     fn poll(self: &mut Self) -> TsumugiCurrentState;
 }
 
-pub trait TsumugiTypeConverter {
-    fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiAnyTrait + Send>);
+pub trait TsumugiParcelInput :TsumugiAnyTrait{
+    fn input_item(self: &mut Self, input_item: &mut Box<dyn TsumugiAnyTrait + Send>) -> TsumugiCurrentState;
 }
 
+pub trait TsumugiParcelOutput<T> {
+    fn output_item(&self) -> &Box<T>;
+}
 pub trait TsumugiAntennaTrait<T: 'static, S: 'static> {
     fn new(tsumugi_parcel_receipter: T) -> TsumugiAntenna;
+    fn output_item(&mut self) -> &mut T;
 }
 
 impl<S: 'static + Send + Clone + TsumugiAnyTrait> TsumugiAntennaTrait<TsumugiParcelReceipter<S>, S> for TsumugiAntenna {
@@ -48,10 +84,15 @@ impl<S: 'static + Send + Clone + TsumugiAnyTrait> TsumugiAntennaTrait<TsumugiPar
         TsumugiAntenna {
             parcel: Box::from(tsumugi_parcel_receipter),
             parceltype: TypeId::of::<S>(),
-            parcellifetime: AntennalLifeTime::Shot,
+            parcellifetime: AntennaLifeTime::Once,
             parcel_name: None,
+            current_state: TsumugiCurrentState::Pending,
             antenna_pack: None,
         }
+    }
+
+    fn output_item(&mut self) -> &mut TsumugiParcelReceipter<S> {
+        self.parcel.as_any().downcast_mut::<TsumugiParcelReceipter<S>>().unwrap()
     }
 }
 
@@ -61,8 +102,8 @@ impl<T: Send + Clone + TsumugiAnyTrait> TsumugiFuture for TsumugiParcelReceipter
     }
 }
 
-impl<T: 'static + TsumugiAnyTrait + Send + Clone> TsumugiTypeConverter for TsumugiParcelReceipter<T> {
-    fn input_item(&mut self, input_item: &mut Box<dyn TsumugiAnyTrait + Send>) {
+impl<T: 'static + TsumugiAnyTrait + Send + Clone> TsumugiParcelInput for TsumugiParcelReceipter<T> {
+    fn input_item(&mut self, input_item: &mut Box<dyn TsumugiAnyTrait + Send>) -> TsumugiCurrentState {
         let movaditem = (*input_item).as_any().downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)
@@ -73,12 +114,11 @@ impl<T: 'static + TsumugiAnyTrait + Send + Clone> TsumugiTypeConverter for Tsumu
         //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。
         std::mem::forget(receive_item);
         self.parcel = boxitem;
-        self.poll();
+        self.poll()
     }
 }
-
 impl<T: 'static + Send + Clone + TsumugiAnyTrait> TsumugiParcelReceipter<T> {
-    pub fn CreateTsumugiAntenna(self) -> TsumugiAntenna {
+    pub fn create_tsumugi_antenna(self) -> TsumugiAntenna {
         TsumugiAntenna::new(self)
     }
 }

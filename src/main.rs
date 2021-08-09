@@ -8,7 +8,7 @@ use std::thread;
 use std::ops::BitAnd;
 use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiObject, TsumugiChannelSenders, };
 use std::rc::Rc;
-use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceipter,TsumugiCurrentState};
+use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceipter, TsumugiCurrentState, TsumugiAntennaTrait};
 use tsumugiEngine::distributor::TsumugiParcelDistributor;
 use tsumugi_any::{TsumugiAnyTrait,TsumugiAny};
 struct ObjectA {
@@ -20,7 +20,7 @@ struct ObjectA {
 impl ObjectA {
     fn spowntsumugiantenna(&self,tc:&TsumugiController) -> TsumugiAntenna {
         let itemlock = self.input_item.clone();
-        TsumugiParcelReceipter {
+        let mut tsumugi_antenna = TsumugiParcelReceipter {
             parcel: Box::new(Parcel { package: 0 }),
             on_change: Box::new(move |parcel| {
                 let mut item = itemlock.lock().unwrap();
@@ -28,7 +28,11 @@ impl ObjectA {
                 dbg!(*item);
                 return TsumugiCurrentState::Pending;
             }),
-        }.create_tsumugi_antenna()
+        }.create_tsumugi_antenna();
+        let a:&mut TsumugiParcelReceipter<Parcel> = tsumugi_antenna.output_item();
+        dbg!(a.parcel.package);
+
+        tsumugi_antenna
     }
 }
 struct Observer{

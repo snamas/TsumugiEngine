@@ -128,7 +128,7 @@ impl TsumugiControllerTrait for TsumugiController {
                         }
                     }
                     //todo:ここpickupitemの性質（変更だけ受け取りたい場合もあるよ
-                    tsumugi_hash.1.receipt_list  = tsumugi_hash.1.receipt_list.drain(..).filter(|x| x.current_state != TsumugiCurrentState::Fulfilled).collect::<Vec<TsumugiAntenna>>();
+                    tsumugi_hash.1.receipt_list.retain(|x| x.current_state != TsumugiCurrentState::Fulfilled);
                     tsumugi_hash.1.pickup_list.clear();
                 }
             }
