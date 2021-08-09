@@ -29,9 +29,6 @@ impl ObjectA {
                 return TsumugiCurrentState::Pending;
             }),
         }.create_tsumugi_antenna();
-        let a:&mut TsumugiParcelReceipter<Parcel> = tsumugi_antenna.output_item();
-        dbg!(a.parcel.package);
-
         tsumugi_antenna
     }
 }
