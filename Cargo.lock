@@ -33,18 +33,18 @@ dependencies = [
 name = "tsumugiEngine"
 version = "0.1.0"
 dependencies = [
- "tsumugi_any",
+ "tsumugi_macro",
 ]
 
 [[package]]
-name = "tsumugi_any"
+name = "tsumugi_macro"
 version = "0.1.0"
 dependencies = [
- "tsumugi_any_derive",
+ "tsumugi_macro_derive",
 ]
 
 [[package]]
-name = "tsumugi_any_derive"
+name = "tsumugi_macro_derive"
 version = "0.1.0"
 dependencies = [
  "quote",

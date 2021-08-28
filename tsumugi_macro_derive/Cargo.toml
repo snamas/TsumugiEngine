@@ -1,14 +1,13 @@
 [package]
-name = "tsumugiEngine"
+name = "tsumugi_macro_derive"
 version = "0.1.0"
 authors = ["Snamas <43674314+KominamiYuto@users.noreply.github.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[workspace]
-members = [
-    "tsumugi_macro",
-    "tsumugi_macro_derive",
-]
+[lib]
+proc-macro = true
+
 [dependencies]
-tsumugi_macro = {path = "tsumugi_macro" }
+quote = "1.0.9"
+syn = "1.0.74"

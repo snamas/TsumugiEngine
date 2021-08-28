@@ -1,5 +1,6 @@
 pub mod antenna;
 pub mod distributor;
+mod antennaChain;
 
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
@@ -11,7 +12,7 @@ use std::marker::PhantomPinned;
 use std::collections::HashMap;
 use crate::antenna::{TsumugiAntenna, TsumugiFuture, TsumugiCurrentState};
 use crate::distributor::TsumugiParcelDistributor;
-use tsumugi_any::{TsumugiAnyTrait};
+use tsumugi_macro::{TsumugiAnyTrait};
 
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
