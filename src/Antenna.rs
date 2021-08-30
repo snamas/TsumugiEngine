@@ -4,7 +4,10 @@ use crate::{TsumugiController};
 use std::sync::{Mutex, Arc};
 use tsumugi_macro::{TsumugiAnyTrait,TsumugiAny};
 use std::convert::TryInto;
+use crate::antenna_chain::TsumugiAntennaChain;
+use std::sync::mpsc::Sender;
 
+#[derive(Clone)]
 pub enum AntennaLifeTime {
     Flash,
     Once,
@@ -14,8 +17,9 @@ pub enum AntennaLifeTime {
     Update,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq,Clone)]
 pub enum TsumugiCurrentState {
+    Untreated,
     Pending,
     Deny,
     Fulfilled,
@@ -29,14 +33,12 @@ pub enum TsumugiAntennaChainType {
     Not,
 }
 
-
 pub struct TsumugiAntenna {
     pub parcel: Box<dyn TsumugiParcelInput + Send>,
     pub parceltype: TypeId,
     pub parcellifetime: AntennaLifeTime,
     pub parcel_name: Option<String>,
     pub current_state: TsumugiCurrentState,
-    pub antenna_pack: Option<Arc<Mutex<TsumugiAntenna>>>,
 }
 
 pub struct TsumugiParcelReceptor<S: Send + Clone + TsumugiAnyTrait> {
@@ -49,12 +51,6 @@ pub struct TsumugiParcelReceptorReturnValue<S: Send + Clone + TsumugiAnyTrait> {
     pub parcel: Arc<Mutex<S>>,
     pub on_change: Option<Arc<dyn Fn(&TsumugiParcelReceptorReturnValue<S>) -> TsumugiCurrentState + Send+Sync>>,
 }
-impl<S: 'static +  Send + Clone + TsumugiAnyTrait> TsumugiAnyTrait for TsumugiParcelReceptor<S>{
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
 pub trait TsumugiFuture {
     fn poll(self: &mut Self) -> TsumugiCurrentState;
 }
@@ -82,7 +78,6 @@ impl<S: 'static + Send + Clone + TsumugiAnyTrait> TsumugiAntennaTrait<TsumugiPar
             parcellifetime: AntennaLifeTime::Once,
             parcel_name: None,
             current_state: TsumugiCurrentState::Pending,
-            antenna_pack: None,
         }
     }
 
@@ -118,7 +113,6 @@ impl<S: 'static + Send + Clone + TsumugiAnyTrait+ Sync> TsumugiAntennaTraitWithV
     fn new_antenna_with_value(tsumugi_parcel_receptor_return_value: TsumugiParcelReceptorReturnValue<S>) -> (Arc<Mutex<S>>,TsumugiAntenna) {
         (tsumugi_parcel_receptor_return_value.drop_tsumugi_parcel(),tsumugi_parcel_receptor_return_value.create_tsumugi_antenna())
     }
-
 }
 impl<T: Send + Clone + TsumugiAnyTrait> TsumugiFuture for TsumugiParcelReceptorReturnValue<T> {
     fn poll(self: &mut Self) -> TsumugiCurrentState {
@@ -153,7 +147,6 @@ impl<T: 'static + Send + Clone + TsumugiAnyTrait+ Sync> TsumugiParcelReceptorRet
             parcellifetime: AntennaLifeTime::Once,
             parcel_name: None,
             current_state: TsumugiCurrentState::Pending,
-            antenna_pack: None,
         }
     }
     pub fn drop_tsumugi_parcel(self:&TsumugiParcelReceptorReturnValue<T>) -> Arc<Mutex<T>> {
@@ -168,7 +161,6 @@ impl<T: 'static + TsumugiAnyTrait + Send + Clone> From<TsumugiParcelReceptorRetu
             parcellifetime: AntennaLifeTime::Once,
             parcel_name: None,
             current_state: TsumugiCurrentState::Pending,
-            antenna_pack: None,
         }
     }
 }

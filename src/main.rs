@@ -10,6 +10,7 @@ use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiObject, Ts
 use std::rc::Rc;
 use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceptor, TsumugiCurrentState, TsumugiAntennaTrait};
 use tsumugiEngine::distributor::TsumugiParcelDistributor;
+use tsumugiEngine::antenna_chain::test;
 use tsumugi_macro::{TsumugiAnyTrait,TsumugiAny};
 use std::convert::TryInto;
 
@@ -80,6 +81,7 @@ fn main() {
     let mut tsumugiroot = TsumugiController::new("Tsumugi".to_string());
     tsumugiroot.execute_tsumugi_functions(vec![Box::new(spown_object_controller)]);
     tsumugiroot.global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 12 }));
+    test();
     loop {
         let mut word = String::new();
         std::io::stdin().read_line(&mut word).ok();

@@ -1,6 +1,7 @@
 pub mod antenna;
 pub mod distributor;
-mod antennaChain;
+pub mod antenna_chain;
+mod parcel_receptor_with_channel;
 
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
