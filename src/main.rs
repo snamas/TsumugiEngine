@@ -25,7 +25,7 @@ impl ObjectA {
         let itemlock = self.input_item.clone();
         let mut tsumugi_pr = TsumugiParcelReceptor {
             parcel: Box::new(Parcel { package: 0 }),
-            on_change: Box::new(move |parcel| {
+            on_change: Arc::new(move |parcel| {
                 let mut item = itemlock.lock().unwrap();
                 *item += parcel.parcel.package;
                 dbg!(*item);

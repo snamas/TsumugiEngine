@@ -30,9 +30,9 @@ pub struct TsumugiAntennaChain<T> {
 }
 
 impl<T:Send> TsumugiAntennaChain<T> {
-    fn from(receivetuple: T,antenna:Vec<TsumugiAntenna>) ->TsumugiAntennaChain<Box<T>> {
+    fn from(receivetuple: T,antenna:Vec<TsumugiAntenna>) ->TsumugiAntennaChain<T> {
         TsumugiAntennaChain{
-            antenna_chain: TsumugiAntennaValue{ tsumugi_antenna: antenna, parcel: Box::new(receivetuple) },
+            antenna_chain: TsumugiAntennaValue{ tsumugi_antenna: antenna, parcel: receivetuple },
             on_set: None
         }
     }
