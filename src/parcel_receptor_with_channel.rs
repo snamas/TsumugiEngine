@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use crate::antenna::{TsumugiCurrentState, TsumugiAntenna, TsumugiAntennaTrait, TsumugiParcelReceptor, AntennaLifeTime, TsumugiFuture, TsumugiParcelInput};
 use std::any::TypeId;
 use std::sync::mpsc::{Sender, Receiver};
+use crate::antenna_chain::TsumugiSpownReceiver;
 
 #[derive(Clone)]
 pub struct TsumugiParcelReceptorWithChannel<S: Send + Clone + TsumugiAnyTrait> {
@@ -36,15 +37,19 @@ impl<T: 'static + Send + Clone + TsumugiAnyTrait> From<TsumugiParcelReceptorWith
 }
 
 impl<T: 'static + Send + Clone + TsumugiAnyTrait> TsumugiParcelReceptorWithChannel<T> {
-    pub fn spown_receiver(&mut self) -> Receiver<T> {
-        let (sender, receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
-        self.sender = sender;
-        return receiver;
-    }
     pub fn new()->TsumugiParcelReceptorWithChannel<T>{
         let (sender, receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
         TsumugiParcelReceptorWithChannel{
             sender: sender
         }
+    }
+}
+impl<T: 'static + Send + Clone + TsumugiAnyTrait> TsumugiSpownReceiver for TsumugiParcelReceptorWithChannel<T> {
+    type output = Receiver<T>;
+
+    fn spown_receiver(&mut self) -> Self::output {
+        let (sender, receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
+        self.sender = sender;
+        return receiver;
     }
 }

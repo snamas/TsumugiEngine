@@ -2,6 +2,7 @@ pub mod antenna;
 pub mod distributor;
 pub mod antenna_chain;
 mod parcel_receptor_with_channel;
+mod signal;
 
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver, Iter};
@@ -13,7 +14,9 @@ use std::marker::PhantomPinned;
 use std::collections::HashMap;
 use crate::antenna::{TsumugiAntenna, TsumugiFuture, TsumugiCurrentState};
 use crate::distributor::TsumugiParcelDistributor;
-use tsumugi_macro::{TsumugiAnyTrait};
+use tsumugi_macro::{TsumugiAnyTrait,TsumugiAny};
+use crate::antenna_chain::TsumugiAntennaChain;
+use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
 
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
@@ -27,7 +30,9 @@ pub struct TsumugiController {
 #[derive(Clone)]
 pub struct TsumugiChannelSenders{
     pub pickup_channel_sender: Sender<TsumugiParcelDistributor>,
-    pub receipt_channel_sender: Sender<TsumugiAntenna>
+    pub recept_channel_sender: Sender<TsumugiAntenna>,
+    pub recept_chain_channel_sender: Sender<TsumugiAntennaChain>,
+
 }
 pub struct TsumugiParcelHashList{
     pickup_list_withid:HashMap<u64, TsumugiParcelDistributor>,
@@ -44,25 +49,26 @@ pub trait TsumugiControllerTrait {
     fn spown(self:&Box<Self>, tsumuginame: String) -> Box<TsumugiController>;
     fn set_object(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
     fn execute_tsumugi_functions(self:&Box<Self>, tsumugi_functions:Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>);
-    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()>;
+    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, receipt_chain_channnel_receiver: Receiver<TsumugiAntennaChain>,pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()>;
 }
 
 impl TsumugiControllerTrait for TsumugiController {
     fn new(tsumuginame: String) -> Box<TsumugiController> {
-        let (receipt_channel_sender, receipt_channnel_receiver): (Sender<TsumugiAntenna>, Receiver<TsumugiAntenna>) = mpsc::channel();
+        let (recept_channel_sender, receipt_channnel_receiver): (Sender<TsumugiAntenna>, Receiver<TsumugiAntenna>) = mpsc::channel();
+        let (recept_chain_channel_sender, receipt_chain_channnel_receiver): (Sender<TsumugiAntennaChain>, Receiver<TsumugiAntennaChain>) = mpsc::channel();
         let (pickup_channel_sender, pickup_channnel_receiver): (Sender<TsumugiParcelDistributor>, Receiver<TsumugiParcelDistributor>) = mpsc::channel();
-        let tsumugiChannelSenders = TsumugiChannelSenders{pickup_channel_sender,receipt_channel_sender};
+        let tsumugi_channel_senders = TsumugiChannelSenders{pickup_channel_sender,recept_channel_sender,recept_chain_channel_sender};
         let mut tsumugi_connect_list: Vec<String> = Vec::new();
         let mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>> = Vec::new();
         let mut tc = Box::new(TsumugiController {
-            local_channel_sender: tsumugiChannelSenders.clone(),
-            global_channel_sender: tsumugiChannelSenders,
+            local_channel_sender: tsumugi_channel_senders.clone(),
+            global_channel_sender: tsumugi_channel_senders,
             connect_tsumugi_controller: tsumugi_connect_list,
             global_connect_tsumugi_controller: Arc::new(Mutex::new(HashMap::new())),
             tsumugi_controller_name: tsumuginame,
             tsumugi_object_vector: tsumugi_object_list
         });
-        tc.execute_tsumugi_thread(receipt_channnel_receiver, pickup_channnel_receiver);
+        tc.execute_tsumugi_thread(receipt_channnel_receiver, receipt_chain_channnel_receiver,pickup_channnel_receiver);
         return tc;
     }
 
@@ -85,7 +91,7 @@ impl TsumugiControllerTrait for TsumugiController {
             self.global_connect_tsumugi_controller.lock().unwrap().insert(tc_new.tsumugi_controller_name.clone(), tc_new as Box<TsumugiController>);
         }
     }
-    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()> {
+    fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntenna>, receipt_chain_channnel_receiver: Receiver<TsumugiAntennaChain>, pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()> {
 
         thread::spawn(move || {
             //todo:うまいことロックを使いこなそうcondvarというやつをつかって

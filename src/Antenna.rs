@@ -9,9 +9,9 @@ use std::sync::mpsc::Sender;
 
 #[derive(Clone)]
 pub enum AntennaLifeTime {
+    Eternal,
     Flash,
     Once,
-    Eternal,
     Lifetime(u32),
     LifeCount(u32),
     Update,
@@ -40,10 +40,10 @@ pub struct TsumugiAntenna {
     pub parcel_name: Option<String>,
     pub current_state: TsumugiCurrentState,
 }
-
+#[derive(Clone)]
 pub struct TsumugiParcelReceptor<S: Send + Clone + TsumugiAnyTrait> {
     pub parcel: Box<S>,
-    pub on_change: Box<dyn Fn(&TsumugiParcelReceptor<S>) -> TsumugiCurrentState + Send>,
+    pub on_change: Arc<dyn Fn(&TsumugiParcelReceptor<S>) -> TsumugiCurrentState + Send+Sync>,
 }
 
 #[derive(Clone)]
@@ -80,7 +80,6 @@ impl<S: 'static + Send + Clone + TsumugiAnyTrait> TsumugiAntennaTrait<TsumugiPar
             current_state: TsumugiCurrentState::Pending,
         }
     }
-
 }
 
 impl<T: Send + Clone + TsumugiAnyTrait> TsumugiFuture for TsumugiParcelReceptor<T> {

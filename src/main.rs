@@ -53,7 +53,7 @@ impl Observer{
 impl TsumugiObject for ObjectA {
     fn on_create(&self, tc: &TsumugiController) {
         let mut receive_ticket = self.spowntsumugiantenna(tc);
-        tc.global_channel_sender.receipt_channel_sender.send(*Box::new(receive_ticket));
+        tc.global_channel_sender.recept_channel_sender.send(*Box::new(receive_ticket));
     }
 }
 
