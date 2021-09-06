@@ -1,6 +1,7 @@
-use crate::TsumugiAnyTrait;
 use std::any::TypeId;
+use tsumugi_macro::TsumugiAnyTrait;
 
+#[derive(PartialEq,Clone)]
 pub enum ParcelLifeTime {
     Flash,
     Once,

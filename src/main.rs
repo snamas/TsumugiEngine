@@ -4,15 +4,12 @@ use std::pin::Pin;
 use std::task::{Context};
 use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
-use std::thread;
-use std::ops::BitAnd;
-use tsumugiEngine::{TsumugiController, TsumugiControllerTrait, TsumugiObject, TsumugiChannelSenders, };
-use std::rc::Rc;
-use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiParcelReceptor, TsumugiCurrentState, TsumugiAntennaTrait};
+use tsumugiEngine::antenna::{TsumugiAntenna,  TsumugiCurrentState};
 use tsumugiEngine::distributor::TsumugiParcelDistributor;
 use tsumugiEngine::antenna_chain::test;
-use tsumugi_macro::{TsumugiAnyTrait,TsumugiAny};
-use std::convert::TryInto;
+use tsumugi_macro::{TsumugiAny};
+use tsumugiEngine::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait};
+use tsumugiEngine::parcel_receptor::TsumugiParcelReceptor;
 
 struct ObjectA {
     input_item: Arc<Mutex<i32>>,
@@ -23,16 +20,16 @@ struct ObjectA {
 impl ObjectA {
     fn spowntsumugiantenna(&self,tc:&TsumugiController) -> TsumugiAntenna {
         let itemlock = self.input_item.clone();
-        let mut tsumugi_pr = TsumugiParcelReceptor {
+        let tsumugi_pr = TsumugiParcelReceptor {
             parcel: Box::new(Parcel { package: 0 }),
             on_change: Arc::new(move |parcel| {
                 let mut item = itemlock.lock().unwrap();
                 *item += parcel.parcel.package;
                 dbg!(*item);
-                return TsumugiCurrentState::Pending;
+                TsumugiCurrentState::Untreated
             }),
         };
-        let mut tsumugi_antenna= tsumugi_pr.create_tsumugi_antenna();
+        let tsumugi_antenna= tsumugi_pr.into();
         tsumugi_antenna
     }
 }

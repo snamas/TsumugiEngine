@@ -1,9 +1,7 @@
 use proc_macro::{TokenStream, TokenTree, Span};
 use quote::{quote, quote_spanned};
 use syn::{parse_macro_input, DeriveInput};
-use std::any::Any;
 use std::str::FromStr;
-use std::iter;
 
 #[proc_macro_derive(TsumugiAny)]
 pub fn derive_any(input: TokenStream) -> TokenStream {

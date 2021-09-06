@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use crate::antenna::{AntennaLifeTime, TsumugiCurrentState};
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
