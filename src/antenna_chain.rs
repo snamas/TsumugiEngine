@@ -5,11 +5,13 @@ use std::any::{Any, TypeId};
 use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
 use std::sync::mpsc::{Receiver, Sender};
 use std::mem;
+use std::collections::HashMap;
+use crate::controller::TsumugiParcelHashList;
 
 #[macro_export]
 macro_rules! antenna_chain {
-     ( $( $x:expr ),*) => {
-         TsumugiReceptorChain::from_receptor(($(
+     ( $( $x:expr ),+) => {
+         TsumugiReceptorChain::<_,()>::from_receptor(($(
              $x.spown_receiver(),
          )*),vec![$(
              $x.into(),
@@ -18,23 +20,30 @@ macro_rules! antenna_chain {
 }
 
 pub struct TsumugiReceptorChain<T,U=()>{
-    tsumugi_antenna_list:Vec<TsumugiAntennaChainVecType>,
+    tsumugi_antenna_list:Vec<TsumugiAntennaType>,
     pub parcel: T,
     subscribe:Option<Box<dyn Fn(&mut T) -> TsumugiCurrentState + Send>>,
     pub sender: Option<Sender<U>>,
     pub chain_name: Option<String>,
+    chain_type:TsumugiAntennaChainType
 }
 
 pub struct TsumugiAntennaChain{
     pub antenna_chain: Box<dyn TsumugiReceptorChainTrait+Send>,
-    tsumugi_antenna_list:Vec<TsumugiAntennaChainVecType>,
+    pub(crate) tsumugi_antenna_list:Vec<TsumugiAntennaType>,
     pub parcellifetime: AntennaLifeTime,
     pub chain_name: Option<String>,
     pub current_state: TsumugiCurrentState,
+    chain_type:TsumugiAntennaChainType
 }
-pub enum TsumugiAntennaChainVecType {
+pub enum TsumugiAntennaType {
     TsumugiAntenna(TsumugiAntenna),
     TsumugiAntennaChain(TsumugiAntennaChain),
+}
+#[derive(Copy, Clone,Eq, PartialEq,Debug)]
+pub enum TsumugiAntennaChainType {
+    And,
+    Next,
 }
 pub trait TsumugiSpownReceiver{
     type Output;
@@ -43,34 +52,40 @@ pub trait TsumugiSpownReceiver{
 pub trait TsumugiReceptorChainTrait{
     fn execute_subscribe(&mut self);
 }
-impl <T: 'static + Send + Clone + TsumugiAnyTrait> From<TsumugiParcelReceptorWithChannel<T>> for TsumugiAntennaChainVecType {
+impl <T: 'static + Send + Clone + TsumugiAnyTrait> From<TsumugiParcelReceptorWithChannel<T>> for TsumugiAntennaType {
     fn from(value: TsumugiParcelReceptorWithChannel<T>) -> Self {
-        TsumugiAntennaChainVecType::TsumugiAntenna(value.into())
+        TsumugiAntennaType::TsumugiAntenna(value.into())
     }
 }
-impl From<TsumugiAntennaChain> for TsumugiAntennaChainVecType {
+impl From<TsumugiAntennaChain> for TsumugiAntennaType {
     fn from(value: TsumugiAntennaChain) -> Self {
-        TsumugiAntennaChainVecType::TsumugiAntennaChain(value)
+        TsumugiAntennaType::TsumugiAntennaChain(value)
+    }
+}
+impl From<TsumugiAntenna> for TsumugiAntennaType {
+    fn from(value: TsumugiAntenna) -> Self {
+        TsumugiAntennaType::TsumugiAntenna(value)
     }
 }
 
-impl<T:Send+'static>  From<TsumugiReceptorChain<T>> for TsumugiAntennaChain {
-    fn from(mut value: TsumugiReceptorChain<T>) -> Self {
-        let tsumugiantennalist:Vec<TsumugiAntennaChainVecType> = std::mem::take(&mut value.tsumugi_antenna_list);
+impl<T:Send+'static,U:Send+'static>  From<TsumugiReceptorChain<T,U>> for TsumugiAntennaChain {
+    fn from(mut value: TsumugiReceptorChain<T,U>) -> Self {
+        let tsumugiantennalist:Vec<TsumugiAntennaType> = std::mem::take(&mut value.tsumugi_antenna_list);
         let chainname = value.chain_name.clone();
-        TsumugiAntennaChain { antenna_chain: Box::new(value), tsumugi_antenna_list: tsumugiantennalist, parcellifetime: AntennaLifeTime::Eternal, chain_name: chainname, current_state: TsumugiCurrentState::Untreated }
+        let chaintype = value.chain_type;
+        TsumugiAntennaChain { antenna_chain: Box::new(value), tsumugi_antenna_list: tsumugiantennalist, parcellifetime: AntennaLifeTime::Eternal, chain_name: chainname, current_state: TsumugiCurrentState::Untreated, chain_type: chaintype }
     }
 }
 
-impl<T:Send+'static>  From<TsumugiReceptorChain<T>> for TsumugiAntennaChainVecType {
-    fn from(mut value: TsumugiReceptorChain<T>) -> Self {
-        TsumugiAntennaChainVecType::TsumugiAntennaChain(value.into())
+impl<T:Send+'static,U:Send+'static>  From<TsumugiReceptorChain<T,U>> for TsumugiAntennaType {
+    fn from(mut value: TsumugiReceptorChain<T,U>) -> Self {
+        TsumugiAntennaType::TsumugiAntennaChain(value.into())
     }
 }
 
-impl <T:Send> TsumugiReceptorChain<T> {
-    pub fn from_receptor(receivetuple: T, antenna:Vec<TsumugiAntennaChainVecType>) -> TsumugiReceptorChain<T> {
-        TsumugiReceptorChain { tsumugi_antenna_list: antenna, parcel: receivetuple, subscribe: None, sender: None, chain_name: None }
+impl <T:Send+'static,U:Send+'static> TsumugiReceptorChain<T,U> {
+    pub fn from_receptor(receivetuple: T, antenna:Vec<TsumugiAntennaType>) -> TsumugiReceptorChain<T> {
+        TsumugiReceptorChain { tsumugi_antenna_list: antenna, parcel: receivetuple, subscribe: None, sender: None, chain_name: None, chain_type: TsumugiAntennaChainType::And }
     }
     fn subscribe(mut self, func: Box<dyn Fn(&mut T) -> TsumugiCurrentState + Send>) ->Self{
         self.subscribe = Some(func);
@@ -81,14 +96,14 @@ impl <T:Send> TsumugiReceptorChain<T> {
         self
     }
 }
-impl <T:Send> TsumugiReceptorChainTrait for TsumugiReceptorChain<T>{
+impl <T:Send+'static,U:Send+'static> TsumugiReceptorChainTrait for TsumugiReceptorChain<T,U>{
     fn execute_subscribe(&mut self) {
         if let Some(sub) = &self.subscribe{
             sub.as_ref()(&mut self.parcel);
         }
     }
 }
-impl <T:Send,U:Send> TsumugiSpownReceiver for TsumugiReceptorChain<T,U>{
+impl <T:Send+'static,U:Send+'static> TsumugiSpownReceiver for TsumugiReceptorChain<T,U>{
     type Output = Receiver<U>;
     fn spown_receiver(&mut self) -> Self::Output {
         let (sender, receiver): (Sender<U>, Receiver<U>) = mpsc::channel();
@@ -96,15 +111,19 @@ impl <T:Send,U:Send> TsumugiSpownReceiver for TsumugiReceptorChain<T,U>{
         return receiver;
     }
 }
-impl TsumugiAntennaChain {
+impl <T:Send+'static,U:Send+'static> TsumugiReceptorChain<T,U> {
     //todo:あとで実装する。
-    fn next(mut self)->TsumugiAntennaChain {
-        TsumugiAntennaChain{
-            antenna_chain: Box::new(TsumugiReceptorChain { tsumugi_antenna_list: vec![], parcel: Box::new(()), subscribe: None, sender: None, chain_name: None }),
-            tsumugi_antenna_list: vec![self.into()],
-            parcellifetime: AntennaLifeTime::Eternal,
+    //todo:nectはparcelとTsumugiReceptorChainが同時に来たときに発動
+    fn next<V:Send+'static>(mut self, mut receptor:impl TsumugiSpownReceiver<Output = Receiver<V>>+Into<TsumugiAntennaType>) ->TsumugiReceptorChain<(Receiver<U>,Receiver<V>),()> {
+        let parcelreceiver = self.spown_receiver();
+        let connectparcelreceiver = receptor.spown_receiver();
+        TsumugiReceptorChain{
+            tsumugi_antenna_list: vec![self.into(),receptor.into()],
+            parcel: (parcelreceiver,connectparcelreceiver),
+            subscribe: None,
+            sender: None,
             chain_name: None,
-            current_state: TsumugiCurrentState::Untreated
+            chain_type: TsumugiAntennaChainType::Next
         }
     }
 }
@@ -119,33 +138,12 @@ struct Backet2 {
     package: i32,
 }
 
-pub fn test(){
-
-    let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new();
-    let receivertsumugi_pr = tsumugi_pr.spown_receiver();
-    let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
-    let receivertb_pr = tb_pr.spown_receiver();
-    let mut tsumugi_recept = TsumugiParcelReceptorWithChannel::<Backet2>::new();
-    let receivertb_recepit = tsumugi_recept.spown_receiver();
-    let mut tsumugi_antenna3:TsumugiAntenna = tsumugi_recept.into();
-
-
-    let  a = TsumugiReceptorChain::from_receptor((receivertb_pr, receivertsumugi_pr), vec![tsumugi_pr.clone().into(), tb_pr.clone().into()]);
-    let mut b = antenna_chain!(tb_pr,tsumugi_pr).subscribe(Box::new(|f|{
-        let a =  &(*f).1;
-        let b = &(*f).0;
-        TsumugiCurrentState::Fulfilled
-    }));
-    let tsumugiantennalist:Vec<TsumugiAntennaChainVecType> = mem::replace(&mut b.tsumugi_antenna_list, vec![]);
-    let mut c = TsumugiAntennaChain { antenna_chain: Box::new(b), tsumugi_antenna_list: tsumugiantennalist, parcellifetime: AntennaLifeTime::Eternal, chain_name: None, current_state: TsumugiCurrentState::Untreated };
-    c.antenna_chain.execute_subscribe();
-}
 #[cfg(test)]
 mod tests {
     use tsumugi_macro::{TsumugiAny};
     use std::any::{Any};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
-    use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaChain, TsumugiAntennaChainVecType};
+    use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType};
     use crate::antenna_chain::TsumugiReceptorChain;
 
     #[derive(Clone,TsumugiAny)]
@@ -162,12 +160,12 @@ mod tests {
         Antenna(Option<String>),
         Antennachain(Vec<ChainNameEnum>),
     }
-    fn chainname(chainitem:&TsumugiAntennaChainVecType) -> ChainNameEnum {
+    fn chainname(chainitem:&TsumugiAntennaType) -> ChainNameEnum {
         match chainitem {
-            TsumugiAntennaChainVecType::TsumugiAntenna(value) => {
-                ChainNameEnum::Antenna(value.parcel_name.clone())
+            TsumugiAntennaType::TsumugiAntenna(value) => {
+                ChainNameEnum::Antenna(value.antenna_name.clone())
             }
-            TsumugiAntennaChainVecType::TsumugiAntennaChain(value) => {
+            TsumugiAntennaType::TsumugiAntennaChain(value) => {
                 let chain = value.tsumugi_antenna_list.iter().map(chainname).collect::<Vec<ChainNameEnum>>();
                 ChainNameEnum::Antennachain(chain)
             }
@@ -179,6 +177,7 @@ mod tests {
         let receivertsumugi_pr = tsumugi_pr.spown_receiver();
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
         let receivertb_pr = tb_pr.spown_receiver();
+        TsumugiReceptorChain::<_,()>::from_receptor((), vec![]);
         let chain = antenna_chain!(tsumugi_pr.clone(),tb_pr.clone());
         let antennachain:TsumugiAntennaChain = chain.into();
         let antennachainname = antennachain.tsumugi_antenna_list.iter().map(chainname).collect::<Vec<ChainNameEnum>>();
@@ -198,5 +197,21 @@ mod tests {
         let chain2 = antenna_chain!(tsumugi_pr.clone(),chain);
         let antennachainname = chain2.tsumugi_antenna_list.iter().map(chainname).collect::<Vec<ChainNameEnum>>();
         assert_eq!(antennachainname,vec![ChainNameEnum::Antenna(Some(String::from("parcel"))),ChainNameEnum::Antennachain(vec![ChainNameEnum::Antenna(Some(String::from("parcel"))),ChainNameEnum::Antenna(None)])]);
+        assert_eq!(chain2.chain_type,TsumugiAntennaChainType::And);
+    }
+    #[test]
+    fn chaincheck_nextchain(){
+        let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().set_name("parcel");
+        let receivertsumugi_pr = tsumugi_pr.spown_receiver();
+        let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
+        let receivertb_pr = tb_pr.spown_receiver();
+        let mut chain = antenna_chain!(tsumugi_pr.clone(),tb_pr.clone());
+        let chain2 = chain.next(tsumugi_pr.clone());
+        let antennachainname = chain2.tsumugi_antenna_list.iter().map(chainname).collect::<Vec<ChainNameEnum>>();
+        assert_eq!(antennachainname,vec![ChainNameEnum::Antennachain(vec![ChainNameEnum::Antenna(Some(String::from("parcel"))),ChainNameEnum::Antenna(None)]),ChainNameEnum::Antenna(Some(String::from("parcel")))]);
+        assert_eq!(chain2.chain_type,TsumugiAntennaChainType::Next);
+        let antennachain2:TsumugiAntennaChain = chain2.into();
+        assert_eq!(antennachain2.chain_type,TsumugiAntennaChainType::Next);
+
     }
 }

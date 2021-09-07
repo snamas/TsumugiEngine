@@ -6,9 +6,11 @@ pub enum ParcelLifeTime {
     Flash,
     Once,
     Eternal,
-    Lifetime(u32),
+    Lifetime(std::time::Duration),
+    Lifecycle(u32),
     LifeCount(u32),
     Update,
+    Fulfilled
 }
 pub struct TsumugiParcelDistributor {
     pub parcel:Box<dyn TsumugiAnyTrait + Send>,

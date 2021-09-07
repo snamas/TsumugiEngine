@@ -3,14 +3,26 @@ use crate::antenna::{TsumugiCurrentState, TsumugiFuture, TsumugiParcelInput, Tsu
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct TsumugiParcelReceptor<S: Send + Clone + TsumugiAnyTrait> {
-    pub parcel: Box<S>,
-    pub on_change: Arc<dyn Fn(&TsumugiParcelReceptor<S>) -> TsumugiCurrentState + Send+Sync>,
+pub struct TsumugiParcelReceptor<T: Send + Clone + TsumugiAnyTrait> {
+    pub parcel: Box<T>,
+    pub subscribe: Option<Arc<dyn Fn(&TsumugiParcelReceptor<T>) -> TsumugiCurrentState + Send+Sync>>,
 }
 
 impl<T: Send + Clone + TsumugiAnyTrait> TsumugiFuture for TsumugiParcelReceptor<T> {
     fn poll(self: &mut Self) -> TsumugiCurrentState {
-        self.on_change.as_ref()(&self)
+        if let Some(subscribe) = &self.subscribe{
+            return subscribe.as_ref()(&self);
+        }
+        TsumugiCurrentState::Fulfilled
+    }
+}
+impl <T: Send + Clone + TsumugiAnyTrait>TsumugiParcelReceptor<T>{
+    pub fn new(parcel:T)->TsumugiParcelReceptor<T>{
+        TsumugiParcelReceptor{ parcel: Box::new(parcel), subscribe: None }
+    }
+    pub fn subscribe(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptor<T>) -> TsumugiCurrentState + Send + Sync>) ->Self{
+        self.subscribe = Some(func);
+        self
     }
 }
 

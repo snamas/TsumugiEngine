@@ -1,5 +1,4 @@
 use std::any::{TypeId};
-use std::sync::{Arc};
 use tsumugi_macro::{TsumugiAnyTrait};
 use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
 use crate::parcel_receptor::TsumugiParcelReceptor;
@@ -23,19 +22,12 @@ pub enum TsumugiCurrentState {
     Fulfilled,
     OnProgress,
 }
-
-pub enum TsumugiAntennaChainType {
-    And,
-    Or,
-    Next,
-    Not,
-}
-
 pub struct TsumugiAntenna {
     pub parcel: Box<dyn TsumugiParcelInput + Send>,
     pub parceltype: TypeId,
     pub parcellifetime: AntennaLifeTime,
     pub parcel_name: Option<String>,
+    pub antenna_name: Option<String>,
     pub current_state: TsumugiCurrentState,
 }
 
@@ -57,6 +49,7 @@ impl <T: 'static + Send + Clone + TsumugiAnyTrait> From<TsumugiParcelReceptor<T>
             parceltype: TypeId::of::<T>(),
             parcellifetime: AntennaLifeTime::Eternal,
             parcel_name: None,
+            antenna_name: None,
             current_state: TsumugiCurrentState::Untreated,
         }
     }
@@ -65,11 +58,13 @@ impl <T: 'static + Send + Clone + TsumugiAnyTrait> From<TsumugiParcelReceptor<T>
 impl<T: 'static + Send + Clone + TsumugiAnyTrait> From<TsumugiParcelReceptorWithChannel<T>> for TsumugiAntenna {
     fn from(value: TsumugiParcelReceptorWithChannel<T>) -> Self {
         let parcel_name = value.parcel_name.clone();
+        let antenna_name = value.antenna_name.clone();
         TsumugiAntenna {
             parcel: Box::from(value),
             parceltype: TypeId::of::<T>(),
             parcellifetime: AntennaLifeTime::Eternal,
             parcel_name: parcel_name,
+            antenna_name: antenna_name,
             current_state: TsumugiCurrentState::Untreated,
         }
     }
@@ -82,6 +77,7 @@ impl<T: 'static + TsumugiAnyTrait + Send + Clone> From<TsumugiParcelReceptorRetu
             parceltype: TypeId::of::<T>(),
             parcellifetime: AntennaLifeTime::Eternal,
             parcel_name: None,
+            antenna_name: None,
             current_state: TsumugiCurrentState::Untreated,
         }
     }

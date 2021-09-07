@@ -9,6 +9,7 @@ use crate::antenna_chain::TsumugiSpownReceiver;
 pub struct TsumugiParcelReceptorWithChannel<S: Send + Clone + TsumugiAnyTrait> {
     pub sender: Sender<S>,
     pub(crate) parcel_name: Option<String>,
+    pub(crate) antenna_name: Option<String>,
 }
 impl<T: 'static + TsumugiAnyTrait + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorWithChannel<T> {
     fn input_item(&mut self, input_item: &mut Box<dyn TsumugiAnyTrait + Send>) -> TsumugiCurrentState {
@@ -30,11 +31,12 @@ impl<T: 'static + Send + Clone + TsumugiAnyTrait> TsumugiParcelReceptorWithChann
         let (sender, _receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
         TsumugiParcelReceptorWithChannel{
             sender: sender,
-            parcel_name: None
+            parcel_name: None,
+            antenna_name: None
         }
     }
     pub fn set_name(mut self, name:impl Into<String>) ->Self{
-        self.parcel_name = Some(name.into());
+        self.antenna_name = Some(name.into());
         self
     }
 }
@@ -64,13 +66,13 @@ mod tests {
     fn namecheck_some() {
         let recept = TsumugiParcelReceptorWithChannel::<Parcel>::new().set_name("test");
         let antenna:TsumugiAntenna = recept.into();
-        assert_eq!(antenna.parcel_name, Some(String::from("test")));
+        assert_eq!(antenna.antenna_name, Some(String::from("test")));
     }
 
     #[test]
     fn namecheck_none() {
         let recept = TsumugiParcelReceptorWithChannel::<Parcel>::new();
         let antenna:TsumugiAntenna = recept.into();
-        assert_eq!(antenna.parcel_name, None);
+        assert_eq!(antenna.antenna_name, None);
     }
 }
