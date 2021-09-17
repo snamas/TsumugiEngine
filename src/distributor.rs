@@ -1,31 +1,36 @@
-use std::any::TypeId;
-use tsumugi_macro::TsumugiAnyTrait;
+use std::any::{TypeId, Any};
+use crate::controller::{TsumugiControllerApplication, TsumugiControllerItemLifeTime, TsumugiControllerItemState};
 
-#[derive(PartialEq,Clone)]
-pub enum ParcelLifeTime {
-    Flash,
-    Once,
-    Eternal,
-    Lifetime(std::time::Duration),
-    Lifecycle(u32),
-    LifeCount(u32),
-    Update,
-    Fulfilled
-}
 pub struct TsumugiParcelDistributor {
-    pub parcel:Box<dyn TsumugiAnyTrait + Send>,
+    pub parcel:Box<dyn Any + Send>,
     pub parceltype: TypeId,
-    pub parcellifetime: ParcelLifeTime,
+    pub parcellifetime: TsumugiControllerItemLifeTime,
     pub parcel_name: Option<String>,
+    pub parcel_application:TsumugiControllerApplication,
+    pub current_state:TsumugiControllerItemState
 }
 
 impl TsumugiParcelDistributor{
-    pub fn new<T: 'static + TsumugiAnyTrait + Send>(tsumugi_parcel:T) ->Self{
+    pub fn new<T: 'static + Send>(tsumugi_parcel:T) ->Self{
         TsumugiParcelDistributor{
             parcel: Box::new(tsumugi_parcel),
             parceltype: TypeId::of::<T>(),
-            parcellifetime: ParcelLifeTime::Once,
-            parcel_name: None
+            parcellifetime: TsumugiControllerItemLifeTime::Once,
+            parcel_name: None,
+            parcel_application: TsumugiControllerApplication::New,
+            current_state: TsumugiControllerItemState::Untreated
         }
+    }
+    pub fn name(mut self,name:impl ToString)->Self{
+        self.parcel_name = Some(name.to_string());
+        self
+    }
+    pub fn lifetime(mut self, lifetime: TsumugiControllerItemLifeTime) ->Self{
+        self.parcellifetime = lifetime;
+        self
+    }
+    pub fn application(mut self,parcel_application:TsumugiControllerApplication)->Self{
+        self.parcel_application = parcel_application;
+        self
     }
 }

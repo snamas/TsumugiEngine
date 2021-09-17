@@ -4,9 +4,8 @@ use std::pin::Pin;
 use std::task::{Context};
 use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
-use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiCurrentState};
+use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiControllerItemState};
 use tsumugiEngine::distributor::TsumugiParcelDistributor;
-use tsumugi_macro::{TsumugiAny};
 use tsumugiEngine::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait};
 use tsumugiEngine::parcel_receptor::TsumugiParcelReceptor;
 
@@ -24,7 +23,7 @@ impl ObjectA {
                 let mut item = itemlock.lock().unwrap();
                 *item += parcel.parcel.package;
                 dbg!(*item);
-                TsumugiCurrentState::Deny
+                TsumugiControllerItemState::Deny
             }));
         let tsumugi_antenna = tsumugi_pr.into();
         tsumugi_antenna
@@ -37,7 +36,7 @@ impl ObjectA {
                 let mut item = itemlock.lock().unwrap();
                 *item = reset.parcel.package;
                 dbg!(*item);
-                TsumugiCurrentState::Deny
+                TsumugiControllerItemState::Deny
             })),
         };
         tsumugi_pr.into()
@@ -79,12 +78,12 @@ pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiContro
     return newtc;
 }
 
-#[derive(Clone, TsumugiAny)]
+#[derive(Clone)]
 struct Parcel {
     package: i32,
 }
 
-#[derive(Clone, TsumugiAny)]
+#[derive(Clone)]
 struct Reset {
     package: i32,
 }

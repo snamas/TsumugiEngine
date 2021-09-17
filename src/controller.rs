@@ -1,17 +1,60 @@
-use std::any::{TypeId};
+use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Arc, Mutex, Condvar};
 use std::thread;
 use std::thread::JoinHandle;
 use std::collections::HashMap;
-use crate::antenna::{TsumugiAntenna, TsumugiFuture, TsumugiCurrentState};
-use crate::distributor::{TsumugiParcelDistributor, ParcelLifeTime};
+use crate::antenna::{TsumugiAntenna, TsumugiFuture};
+use crate::distributor::{TsumugiParcelDistributor};
 use tsumugi_macro::{TsumugiAnyTrait};
-use crate::antenna_chain::{TsumugiAntennaChain, TsumugiAntennaType};
+use crate::antenna_chain::{TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType};
 use std::hash::Hash;
-use crate::distributor::ParcelLifeTime::{Fulfilled, Once};
-use crate::antenna::AntennaLifeTime::Flash;
 use std::time::{Instant, Duration};
+use std::path::Prefix::Verbatim;
+
+/// Controllerに送る際、どう作成するか
+#[derive(PartialEq,Clone,Copy,Debug)]
+pub enum TsumugiControllerApplication {
+    /// 新規作成
+    New,
+    /// LifeTimeの型が同じものはすべて破棄され、このアンテナに更新される。LifeCount(u32)などに存在する値は考慮しない。（更新対象が存在しない場合、新規作成される）
+    Renew,
+    /// 更新する（更新対象が存在しない場合、新規作成されず、棄却される）
+    RenewOrReject,
+    /// 破棄する（LifeTimeの型が同じものはすべて破棄される）
+    Drop
+}
+/// 扱うものの現在の状況を示すenum
+#[derive(PartialEq,Clone,Copy,Debug)]
+pub enum TsumugiControllerItemState {
+    /// 未処理
+    Untreated,
+    /// 処理が棄却された
+    Deny,
+    /// 処理が受理された
+    Fulfilled,
+    /// 処理中
+    OnProgress,
+    /// この処理が終わった時に、消去する。（アンテナ限定）
+    Eliminate,
+}
+
+/// antennaの生存期間を示すenum
+#[derive(PartialEq,Clone,Copy,Debug)]
+pub enum TsumugiControllerItemLifeTime {
+    /// Ⅰサイクルのみ生存する
+    Flash,
+    /// 一度値を受け取るまで生存する
+    Once,
+    ///永遠に生存する
+    Eternal,
+    ///一定時間のみ生存する
+    Lifetime(std::time::Duration),
+    ///決めた回数値を受け取るまで生存する
+    LifeCount(u32),
+    ///決めたサイクル数まで生存する
+    Lifecycle(u32),
+}
 
 pub struct TsumugiController {
     pub local_channel_sender:TsumugiChannelSenders,
@@ -30,9 +73,9 @@ pub struct TsumugiChannelSenders{
 }
 pub struct TsumugiParcelHashList{
     pickup_list_withid:HashMap<String, Vec<TsumugiParcelDistributor>>,
-    receipt_list_withid:HashMap<String,Vec<TsumugiAntenna>>,
+    recept_list_withid:HashMap<String,Vec<TsumugiAntenna>>,
     pickup_list: Vec<TsumugiParcelDistributor>,
-    receipt_list:Vec<TsumugiAntenna>
+    recept_list:Vec<TsumugiAntenna>
 }
 struct DepotHashList(HashMap<TypeId,TsumugiParcelHashList>);
 
@@ -40,6 +83,19 @@ pub struct TsumugiAntennaChainHashList{
     receipt_list:Vec<TsumugiAntennaChain>
 }
 
+impl TsumugiControllerItemLifeTime {
+    pub fn compare(&self, antenna:&TsumugiControllerItemLifeTime) ->bool{
+        match (self,antenna) {
+            (TsumugiControllerItemLifeTime::Flash, TsumugiControllerItemLifeTime::Flash) => {true}
+            (TsumugiControllerItemLifeTime::Once, TsumugiControllerItemLifeTime::Once) => {true}
+            (TsumugiControllerItemLifeTime::Eternal, TsumugiControllerItemLifeTime::Eternal) => {true}
+            (TsumugiControllerItemLifeTime::Lifetime(_), TsumugiControllerItemLifeTime::Lifetime(_)) => {true}
+            (TsumugiControllerItemLifeTime::LifeCount(_), TsumugiControllerItemLifeTime::LifeCount(_)) => {true}
+            (TsumugiControllerItemLifeTime::Lifecycle(_), TsumugiControllerItemLifeTime::Lifecycle(_)) => {true}
+            _=>{false}
+        }
+    }
+}
 pub trait TsumugiObject {
     fn on_create(&self,tc:&TsumugiController);
 }
@@ -50,46 +106,305 @@ pub trait TsumugiControllerTrait {
     fn execute_tsumugi_functions(self:&Box<Self>, tsumugi_functions:Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>);
     fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntennaType>,pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>) -> JoinHandle<()>;
 }
-
-fn chain_parse(chain_item:TsumugiAntennaType, depot_hashmap_typeof:&mut DepotHashList, antenna_chain_hashlist:&mut TsumugiAntennaChainHashList){
+fn transfer(parcel:&mut TsumugiParcelDistributor,antenna:&mut TsumugiAntenna){
+    if let TsumugiControllerItemLifeTime::LifeCount(0) = antenna.antennalifetime {
+        antenna.current_state = TsumugiControllerItemState::Fulfilled;
+        return;
+    }
+    if let TsumugiControllerItemLifeTime::LifeCount(0) = parcel.parcellifetime {
+        parcel.current_state = TsumugiControllerItemState::Fulfilled;
+        return;
+    }
+    let antenna_state = antenna.parcel.input_item(&mut parcel.parcel);
+    antenna.current_state = antenna_state;
+    if antenna_state != TsumugiControllerItemState::Deny{
+        if let TsumugiControllerItemLifeTime::LifeCount(mut x) = antenna.antennalifetime {
+            x = x.saturating_sub(1);
+            antenna.antennalifetime = TsumugiControllerItemLifeTime::LifeCount(x);
+        }
+        if let TsumugiControllerItemLifeTime::LifeCount(mut x) = parcel.parcellifetime {
+            x = x.saturating_sub(1);
+            parcel.parcellifetime = TsumugiControllerItemLifeTime::LifeCount(x);
+        }
+        if parcel.parcellifetime == TsumugiControllerItemLifeTime::Once{
+            parcel.current_state = TsumugiControllerItemState::Fulfilled;
+        }
+    }
+}
+//注意：antenna_chain_actionはparcel_actionの後に実行すること。
+fn antenna_chain_action(chain_item:TsumugiAntennaType, depot_hashmap_typeof:&mut DepotHashList, antenna_chain_hashlist:&mut TsumugiAntennaChainHashList){
     match chain_item {
-        TsumugiAntennaType::TsumugiAntenna(antenna) => {
+        TsumugiAntennaType::TsumugiAntenna(mut antenna) => {
             let tsumugi_hash_typesep = depot_hashmap_typeof.0.entry(antenna.parceltype).or_insert(TsumugiParcelHashList{
                 pickup_list_withid: Default::default(),
-                receipt_list_withid: Default::default(),
+                recept_list_withid: Default::default(),
                 pickup_list:vec![],
-                receipt_list: vec![]
+                recept_list: vec![]
             });
             if let Some(parcel_name) = &antenna.parcel_name{
-                tsumugi_hash_typesep.receipt_list_withid.entry(parcel_name.clone()).or_insert_with(Vec::new).push(antenna);
+                let recept_list = tsumugi_hash_typesep.recept_list_withid.entry(parcel_name.clone()).or_insert_with(Vec::new);
+                match antenna.antenna_application {
+                    TsumugiControllerApplication::New => {}
+                    _ =>{
+                        let mut existence = false;
+                        recept_list.retain(|val|{
+                            let is_equal = val.antennalifetime.compare(&antenna.antennalifetime);
+                            existence = is_equal ||existence;
+                            !is_equal
+                        });
+                        match antenna.antenna_application {
+                            TsumugiControllerApplication::RenewOrReject => {if !existence{
+                                return;
+                            }}
+                            TsumugiControllerApplication::Drop => {return;}
+                            _=>{}
+                        }
+                    }
+                }
+                if let Some(pickup_list_withid) = tsumugi_hash_typesep.pickup_list_withid.get_mut(&parcel_name.clone()){
+                    for parcel in pickup_list_withid {
+                        transfer(parcel,&mut antenna);
+                    }
+                }
+                match (antenna.antennalifetime,antenna.current_state) {
+                    (TsumugiControllerItemLifeTime::Flash, _) => {}
+                    (TsumugiControllerItemLifeTime::Once, TsumugiControllerItemState::Fulfilled)=>{}
+                    (TsumugiControllerItemLifeTime::LifeCount(0),_)=>{}
+                    (_,_)=>{recept_list.push(antenna);}
+                }
             }else{
-                tsumugi_hash_typesep.receipt_list.push(antenna);
+                match antenna.antenna_application {
+                    TsumugiControllerApplication::New => {}
+                    _ =>{
+                        let mut existence = false;
+                        tsumugi_hash_typesep.recept_list.retain(|val|{
+                            let is_equal = val.antennalifetime.compare(&antenna.antennalifetime);
+                            existence = is_equal ||existence;
+                            !is_equal
+                        });
+                        match antenna.antenna_application {
+                            TsumugiControllerApplication::RenewOrReject => {if !existence{
+                                return;
+                            }}
+                            TsumugiControllerApplication::Drop => {return;}
+                            _=>{}
+                        }
+                    }
+                }
+
+                for mut parcel in &mut tsumugi_hash_typesep.pickup_list{
+                    transfer(parcel,&mut antenna);
+                }
+                match (antenna.antennalifetime,antenna.current_state) {
+                    (TsumugiControllerItemLifeTime::Flash, _) => {}
+                    (TsumugiControllerItemLifeTime::Once, TsumugiControllerItemState::Fulfilled)=>{}
+                    (TsumugiControllerItemLifeTime::LifeCount(0),_)=>{}
+                    (_,_)=>{tsumugi_hash_typesep.recept_list.push(antenna);}
+                }
             }
         }
         TsumugiAntennaType::TsumugiAntennaChain(mut antenna_chain) => {
-            let antenna_list = std::mem::take(&mut antenna_chain.tsumugi_antenna_list);
-            for antenna_item in antenna_list{
-                chain_parse(antenna_item, depot_hashmap_typeof, antenna_chain_hashlist);
+            match antenna_chain.chain_type {
+                TsumugiAntennaChainType::And => {
+                    let antenna_list = std::mem::take(&mut antenna_chain.tsumugi_antenna_list);
+                    for antenna_item in antenna_list{
+                        antenna_chain_action(antenna_item, depot_hashmap_typeof, antenna_chain_hashlist);
+                    }}
+                TsumugiAntennaChainType::Next => {
+                    antenna_chain_action(antenna_chain.tsumugi_antenna_list.swap_remove(0), depot_hashmap_typeof, antenna_chain_hashlist);
+                }
             }
             antenna_chain_hashlist.receipt_list.push(antenna_chain);
         }
     }
 }
 
-fn parcel_parse(pickup_item:TsumugiParcelDistributor, depot_hashmap_typeof:&mut DepotHashList){
+fn parcel_action(mut pickup_item:TsumugiParcelDistributor, depot_hashmap_typeof:&mut DepotHashList){
     let tsumugi_parcel_hash_list = TsumugiParcelHashList{
         pickup_list_withid: Default::default(),
-        receipt_list_withid: Default::default(),
+        recept_list_withid: Default::default(),
         pickup_list:vec![],
-        receipt_list: vec![]
+        recept_list: vec![]
     };
-    dbg!(pickup_item.parceltype);
     let tsumugi_hash_typesep = depot_hashmap_typeof.0.entry(pickup_item.parceltype).or_insert(tsumugi_parcel_hash_list);
     if let Some(parcel_name) = &pickup_item.parcel_name{
-        tsumugi_hash_typesep.pickup_list_withid.entry(parcel_name.clone()).or_insert_with(Vec::new).push(pickup_item);
+        let pickup_list_withid = tsumugi_hash_typesep.pickup_list_withid.entry(parcel_name.clone()).or_insert_with(Vec::new);
+
+        match pickup_item.parcel_application {
+            TsumugiControllerApplication::New => {}
+            _ =>{
+                let mut existence = false;
+                pickup_list_withid.retain(|val|{
+                    let is_equal = val.parcellifetime.compare(&pickup_item.parcellifetime);
+                    existence = is_equal ||existence;
+                    !is_equal
+                });
+                match pickup_item.parcel_application {
+                    TsumugiControllerApplication::RenewOrReject => {if !existence{
+                        return;
+                    }}
+                    TsumugiControllerApplication::Drop => {return;}
+                    _=>{}
+                }
+            }
+        }
+        if let Some(recept_list_withid) = tsumugi_hash_typesep.recept_list_withid.get_mut(&parcel_name.clone()){
+            for antenna in recept_list_withid {
+                transfer(&mut pickup_item,antenna);
+                if pickup_item.parcellifetime == TsumugiControllerItemLifeTime::LifeCount(0){
+                    return;
+                }
+            }
+        }
+        pickup_list_withid.push(pickup_item);
     }else{
+        //todo:ここ二度手間だからなんとか共通化したいところ
+        match pickup_item.parcel_application {
+            TsumugiControllerApplication::New => {}
+            _ =>{
+                let mut existence = false;
+                tsumugi_hash_typesep.pickup_list.retain(|val|{
+                    let is_equal = val.parcellifetime.compare(&pickup_item.parcellifetime);
+                    existence = is_equal ||existence;
+                    !is_equal
+                });
+                match pickup_item.parcel_application {
+                    TsumugiControllerApplication::RenewOrReject => {if !existence{
+                        return;
+                    }}
+                    TsumugiControllerApplication::Drop => {return;}
+                    _=>{}
+                }
+            }
+        }
+
+        for mut antenna in &mut tsumugi_hash_typesep.recept_list {
+            transfer(&mut pickup_item,antenna);
+            if pickup_item.parcellifetime == TsumugiControllerItemLifeTime::LifeCount(0){
+                return;
+            }
+        }
         tsumugi_hash_typesep.pickup_list.push(pickup_item);
     }
+}
+fn antenna_chain_loop(controll_loop_kit:&mut ControllLoopKitStruct){
+    let antenna_chain_hash_list = &mut controll_loop_kit.antennachain_hashmap;
+    let mut next_antenna_list = Vec::new();
+    for antenna_chain in &mut antenna_chain_hash_list.receipt_list{
+        match antenna_chain.chain_type {
+            TsumugiAntennaChainType::And => {
+                let antenna_state = antenna_chain.antenna_chain.execute_subscribe();
+                antenna_chain.current_state = antenna_state;
+                match (antenna_chain.antenna_chain_lifetime,antenna_state) {
+                    (TsumugiControllerItemLifeTime::LifeCount(mut x), TsumugiControllerItemState::Fulfilled) => {
+                        x = x.saturating_sub(1);
+                        antenna_chain.antenna_chain_lifetime = TsumugiControllerItemLifeTime::LifeCount(x);
+                    }
+                    (TsumugiControllerItemLifeTime::Lifecycle(mut x), _) => {
+                        x = x.saturating_sub(1);
+                        antenna_chain.antenna_chain_lifetime = TsumugiControllerItemLifeTime::Lifecycle(x);
+                    }
+                    (TsumugiControllerItemLifeTime::Lifetime(mut x), _) => {
+                        x = x.saturating_sub(controll_loop_kit.inst_time.elapsed());
+                        antenna_chain.antenna_chain_lifetime = TsumugiControllerItemLifeTime::Lifetime(x);
+                    }
+                    (_,_)=>{}
+                }
+            }
+            TsumugiAntennaChainType::Next => {
+                let antenna_state = antenna_chain.antenna_chain.execute_subscribe();
+                if antenna_state == TsumugiControllerItemState::Fulfilled {
+                    let antenna_list = std::mem::take(&mut antenna_chain.tsumugi_antenna_list);
+                    next_antenna_list.push(antenna_list);
+                }
+            }
+        }
+    }
+    for antenna_list in next_antenna_list{
+        for antenna_item in antenna_list{
+            antenna_chain_action(antenna_item, &mut controll_loop_kit.depot_hashmap_typeof,  antenna_chain_hash_list);
+        }
+    }
+    antenna_chain_hash_list.receipt_list.retain(|antenna_chain|{
+        match (antenna_chain.antenna_chain_lifetime,antenna_chain.current_state) {
+            (TsumugiControllerItemLifeTime::Flash,_)=> false,
+            (TsumugiControllerItemLifeTime::Once,TsumugiControllerItemState::Fulfilled)=> false,
+            (TsumugiControllerItemLifeTime::Lifetime(Duration::ZERO),_)=> false,
+            (TsumugiControllerItemLifeTime::LifeCount(0),_)=> false,
+            (TsumugiControllerItemLifeTime::Lifecycle(0),_)=> false,
+            (_,TsumugiControllerItemState::Eliminate)=> false,
+            (_, _) => true
+        }
+    })
+
+}
+struct ControllLoopKitStruct{
+    receipt_channnel_receiver: Receiver<TsumugiAntennaType>,
+    pickup_channnel_receiver: Receiver<TsumugiParcelDistributor>,
+    inst_time: Instant,
+    depot_hashmap_typeof: DepotHashList,
+    antennachain_hashmap: TsumugiAntennaChainHashList
+}
+fn thread_loop_antenna_parcel(controll_loop_kit:&mut ControllLoopKitStruct){
+    let mut pickup_iter  = controll_loop_kit.pickup_channnel_receiver.try_iter();
+    let mut receipt_iter = controll_loop_kit.receipt_channnel_receiver.try_iter();
+    for pickup_item in pickup_iter {
+        parcel_action(pickup_item, &mut controll_loop_kit.depot_hashmap_typeof);
+    }
+    for receive_item in receipt_iter {
+        antenna_chain_action(receive_item, &mut controll_loop_kit.depot_hashmap_typeof, &mut controll_loop_kit.antennachain_hashmap);
+    }
+    antenna_chain_loop(controll_loop_kit);
+    for tsumugi_hash in controll_loop_kit.depot_hashmap_typeof.0.iter_mut() {
+        //todo:これを充実させてexecute_tsumugi_threadに持ってこよう。
+        for antenna in &mut tsumugi_hash.1.recept_list {
+            match antenna.antennalifetime{
+                TsumugiControllerItemLifeTime::Lifecycle(mut x)=> {
+                    x = x.saturating_sub(1);
+                    antenna.antennalifetime = TsumugiControllerItemLifeTime::Lifecycle(x);
+                },
+                TsumugiControllerItemLifeTime::Lifetime(mut x) => {
+                    x = x.saturating_sub(controll_loop_kit.inst_time.elapsed());
+                    antenna.antennalifetime = TsumugiControllerItemLifeTime::Lifetime(x);
+                }
+                _=>{}
+            }
+        }
+        tsumugi_hash.1.recept_list.retain(|val| {
+            match (val.antennalifetime,val.current_state){
+                (TsumugiControllerItemLifeTime::Flash,_)=> false,
+                (TsumugiControllerItemLifeTime::Once, TsumugiControllerItemState::Fulfilled)=> false,
+                (TsumugiControllerItemLifeTime::Lifecycle(0),_)=> false,
+                (TsumugiControllerItemLifeTime::LifeCount(0),_)=> false,
+                (TsumugiControllerItemLifeTime::Lifetime(Duration::ZERO),_)=> false,
+                (_,TsumugiControllerItemState::Eliminate)=> false,
+                (_,_)=> true
+            }
+        });
+        for parcel in &mut tsumugi_hash.1.pickup_list{
+            match parcel.parcellifetime{
+                TsumugiControllerItemLifeTime::Lifetime(mut x) => {
+                    x = x.saturating_sub(controll_loop_kit.inst_time.elapsed());
+                    parcel.parcellifetime = TsumugiControllerItemLifeTime::Lifetime(x);
+                }
+                TsumugiControllerItemLifeTime::Lifecycle(mut x) => {
+                    x = x.saturating_sub(1);
+                    parcel.parcellifetime = TsumugiControllerItemLifeTime::Lifecycle(x);}
+                _=>{}
+            }
+        }
+        tsumugi_hash.1.pickup_list.retain(|val|
+            match (val.parcellifetime,val.current_state){
+                (TsumugiControllerItemLifeTime::Flash,_)=> false,
+                (TsumugiControllerItemLifeTime::Once, TsumugiControllerItemState::Fulfilled)=> false,
+                (TsumugiControllerItemLifeTime::Lifecycle(0),_)=> false,
+                (TsumugiControllerItemLifeTime::LifeCount(0),_)=> false,
+                (TsumugiControllerItemLifeTime::Lifetime(Duration::ZERO),_)=> false,
+                (_,_)=> true
+            });
+    }
+    controll_loop_kit.inst_time = Instant::now();
+
 }
 impl TsumugiControllerTrait for TsumugiController {
     fn new(tsumuginame: String) -> Box<TsumugiController> {
@@ -143,53 +458,15 @@ impl TsumugiControllerTrait for TsumugiController {
             let mut depot_hashmap_typeof = DepotHashList(HashMap::new());
             let mut antennachain_hashmap = TsumugiAntennaChainHashList { receipt_list: Vec::new() };
             let mut inst_time = Instant::now();
+            let mut controll_loop_kit = ControllLoopKitStruct{
+                receipt_channnel_receiver,
+                pickup_channnel_receiver,
+                inst_time,
+                depot_hashmap_typeof,
+                antennachain_hashmap
+            };
             loop {
-                let mut receipt_iter = receipt_channnel_receiver.try_iter();
-                for receive_item in receipt_iter {
-                    chain_parse(receive_item, &mut depot_hashmap_typeof, &mut antennachain_hashmap);
-                }
-                let mut pickup_iter  = pickup_channnel_receiver.try_iter();
-                for pickup_item in pickup_iter {
-                    parcel_parse(pickup_item,&mut depot_hashmap_typeof);
-                }
-                //todo:ここ値の受け渡し処理を行なう場所
-                for tsumugi_hash in depot_hashmap_typeof.0.iter_mut(){
-                    for pickupitem in tsumugi_hash.1.pickup_list.iter_mut(){
-                        for receiptitem in tsumugi_hash.1.receipt_list.iter_mut(){
-                            receiptitem.current_state = receiptitem.parcel.input_item(&mut pickupitem.parcel);
-                            if pickupitem.parcellifetime == Once{
-                                pickupitem.parcellifetime = Fulfilled;
-                            }
-                        }
-                        pickupitem.parcellifetime = match pickupitem.parcellifetime {
-                            ParcelLifeTime::Flash => {Fulfilled}
-                            ParcelLifeTime::Once => {Once}
-                            ParcelLifeTime::Eternal => {ParcelLifeTime::Eternal}
-                            ParcelLifeTime::Lifetime(mut x) => {
-                                let opt_x = x.checked_sub(inst_time.elapsed());
-                                match opt_x {
-                                    None => {Fulfilled}
-                                    Some(x) => {ParcelLifeTime::Lifetime(x)}
-                                }
-                            }
-                            ParcelLifeTime::Lifecycle(mut x) => {
-                                x = x.saturating_sub(1);
-                                if x == 0{
-                                    ParcelLifeTime::Fulfilled
-                                }else {
-                                    ParcelLifeTime::Lifecycle(x)
-                                }
-                            }
-                            ParcelLifeTime::LifeCount(x) => {ParcelLifeTime::LifeCount(x)}
-                            ParcelLifeTime::Update => {ParcelLifeTime::Fulfilled}
-                            ParcelLifeTime::Fulfilled => {ParcelLifeTime::Fulfilled}
-                        }
-                    }
-                    //todo:ここpickupitemの性質（変更だけ受け取りたい場合もあるよ
-                    tsumugi_hash.1.receipt_list.retain(|x| x.current_state != TsumugiCurrentState::Fulfilled);
-                    tsumugi_hash.1.pickup_list.retain(|x| x.parcellifetime != ParcelLifeTime::Fulfilled);
-                }
-                inst_time = Instant::now();
+                thread_loop_antenna_parcel(&mut controll_loop_kit);
             }
         }
         )
@@ -200,11 +477,17 @@ mod tests {
     use tsumugi_macro::{TsumugiAny};
     use std::any::{Any, TypeId};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
-    use crate::antenna_chain::{TsumugiSpownReceiver};
+    use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaType, TsumugiReceptorChainTrait};
     use crate::antenna_chain::TsumugiReceptorChain;
     use std::collections::{HashMap, HashSet};
-    use crate::controller::{ DepotHashList, TsumugiAntennaChainHashList, chain_parse, parcel_parse};
-    use crate::distributor::TsumugiParcelDistributor;
+    use crate::controller::{DepotHashList, TsumugiAntennaChainHashList,TsumugiControllerApplication, antenna_chain_action, parcel_action, TsumugiController, TsumugiChannelSenders, TsumugiObject, TsumugiParcelHashList, TsumugiControllerItemLifeTime, TsumugiControllerItemState, ControllLoopKitStruct, thread_loop_antenna_parcel};
+    use crate::distributor::{TsumugiParcelDistributor};
+    use std::sync::mpsc::{Receiver, TryIter, Sender};
+    use std::time::{Instant, Duration};
+    use std::sync::{mpsc, Mutex, Arc};
+    use crate::parcel_receptor::TsumugiParcelReceptor;
+    use crate::antenna::TsumugiAntenna;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[derive(Clone,TsumugiAny)]
     struct Parcel {
@@ -212,12 +495,46 @@ mod tests {
     }
 
     #[derive(Clone,TsumugiAny)]
+    struct ParcelStr {
+        package: String,
+    }
+
+    #[derive(Clone,TsumugiAny)]
     struct Backet {
         package: i32,
     }
+    impl ControllLoopKitStruct {
+        fn new()->(Self,TsumugiChannelSenders){
+            let (recept_channel_sender, receipt_channnel_receiver): (Sender<TsumugiAntennaType>, Receiver<TsumugiAntennaType>) = mpsc::channel();
+            let (pickup_channel_sender, pickup_channnel_receiver): (Sender<TsumugiParcelDistributor>, Receiver<TsumugiParcelDistributor>) = mpsc::channel();
+            let tsumugi_channel_senders = TsumugiChannelSenders{pickup_channel_sender,recept_channel_sender};
+            let controll_test_kit_struct = ControllLoopKitStruct {
+                receipt_channnel_receiver,
+                pickup_channnel_receiver,
+                inst_time: Instant::now(),
+                depot_hashmap_typeof: DepotHashList(HashMap::new()),
+                antennachain_hashmap: TsumugiAntennaChainHashList { receipt_list: Vec::new() }
+            };
+            (controll_test_kit_struct,tsumugi_channel_senders)
+        }
+        fn checkhashmap(&mut self,typeid:TypeId)->&mut TsumugiParcelHashList{
+            self.depot_hashmap_typeof.0.get_mut(&typeid).unwrap()
+        }
+    }
+    impl TsumugiController{
+        fn execute_tsumugi_nothread(controll_loop_kit: &mut ControllLoopKitStruct){
+            thread_loop_antenna_parcel(controll_loop_kit);
+        }
+    }
+    impl TsumugiParcelHashList{
+        ///(pickup_list, pickup_list_withid, recept_list. recept_list_withid)の順番で出力する。
+        fn hashListCount(&self)->(usize,usize,usize,usize){
+            (self.pickup_list.len(), self.pickup_list_withid.len(), self.recept_list.len(), self.recept_list_withid.len())
+        }
+    }
     #[test]
     fn chain_parse_test(){
-        let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().set_name("pa");
+        let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().antenna_name("pa");
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet>::new();
         let mut chain = crate::antenna_chain!(tsumugi_pr.clone(),tb_pr);
         chain.chain_name = Some("chain".into());
@@ -225,10 +542,10 @@ mod tests {
         let mut antenna_hashmap_typeof = DepotHashList(HashMap::new());
         let mut antennachain_hashmap = TsumugiAntennaChainHashList { receipt_list: Vec::new() };
         //[antenna[parcel(pa),antenna[paecel(pa),Backet2(None)]]
-        chain_parse(chain2.into(), &mut antenna_hashmap_typeof, &mut antennachain_hashmap);
+        antenna_chain_action(chain2.into(), &mut antenna_hashmap_typeof, &mut antennachain_hashmap);
         {
             let antenna_name = antenna_hashmap_typeof.0.iter().map(|(typeid,antenna)|{
-                antenna.receipt_list.iter().map(|x|{x.antenna_name.clone()}).collect::<Vec<Option<String>>>()
+                antenna.recept_list.iter().map(|x|{x.antenna_name.clone()}).collect::<Vec<Option<String>>>()
             }).collect::<HashSet<Vec<Option<String>>>>();
             let mut check_antennavec = HashSet::new();
             check_antennavec.insert(vec![Some("pa".into()),Some("pa".into())]);
@@ -253,7 +570,7 @@ mod tests {
         let parcelpack = vec![parcel,parcel_name,backet_name];
         let mut depot_hashmap_typeof = DepotHashList(HashMap::new());
         for parcel in parcelpack{
-            parcel_parse(parcel,&mut depot_hashmap_typeof);
+            parcel_action(parcel, &mut depot_hashmap_typeof);
         }
         {
             let parcel_noname = depot_hashmap_typeof.0.iter().map(|(_typeid, value)|{
@@ -276,6 +593,189 @@ mod tests {
             assert_eq!(parcel_name,parcel_typelist);
         }
 
+    }
+    #[test]
+    fn controller_nothread_test(){
+        let (mut controll_loop_kit, tsumugi_channel_senders)= ControllLoopKitStruct::new();
+        {
+            //parcelを送る（Once）
+            let new_parcel = TsumugiParcelDistributor::new(Parcel{ package: 10 });
+            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel);
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(hashmap.hashListCount(),(1,0,0,0));
+            assert_eq!(hashmap.pickup_list.get(0).unwrap().parcellifetime, TsumugiControllerItemLifeTime::Once);
+        }
+        let mut parcelpackage = Arc::new(Mutex::new(1));
+        let mut parcelpack_clone = parcelpackage.clone();
+        let tsumugi_pr = TsumugiParcelReceptor::new(Parcel { package: 0 }).subscribe(
+            Arc::new(move |parcel| {
+                *parcelpack_clone.lock().unwrap() += parcel.parcel.package;
+                TsumugiControllerItemState::Fulfilled
+            }));
+        {
+            //Antennaを送る（Eternal,反応）
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_pr.clone().into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 11);
+            assert_eq!(hashmap.hashListCount(),(0,0,1,0));
+        }
+        {
+            //Antennaを送る（Flash,無反応）
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_antenna.antennalifetime = TsumugiControllerItemLifeTime::Flash;
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_antenna.into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 11);
+            assert_eq!(hashmap.hashListCount(),(0,0,1,0));
+        }
+        {
+            //Antennaを送る（Once,無反応）
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_antenna.antennalifetime = TsumugiControllerItemLifeTime::Once;
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_antenna.into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 11);
+            assert_eq!(hashmap.hashListCount(),(0,0,2,0));
+        }
+        {
+            //parcelを送る（Once）
+            let new_parcel = TsumugiParcelDistributor::new(Parcel{ package: 20 });
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel);
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 51);
+            assert_eq!(hashmap.hashListCount(),(0,0,1,0));
+        }
+        //parcelを0にリセット
+        *parcelpackage.lock().unwrap() = 0;
+        //コントローラーをリセット
+        let (mut controll_loop_kit, tsumugi_channel_senders)= ControllLoopKitStruct::new();
+        {
+            //parcelを送る（LifeCount(2)）
+            let mut new_parcel = TsumugiParcelDistributor::new(Parcel{ package: 10 });
+            new_parcel.parcellifetime = TsumugiControllerItemLifeTime::LifeCount(2);
+            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel);
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(hashmap.hashListCount(),(1,0,0,0));
+            assert_eq!(hashmap.pickup_list.get(0).unwrap().parcellifetime, TsumugiControllerItemLifeTime::LifeCount(2));
+        }
+        {
+            //Antennaを送る（Flash,反応）
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_antenna.antennalifetime = TsumugiControllerItemLifeTime::Flash;
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_antenna.into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 10);
+            assert_eq!(hashmap.hashListCount(),(1,0,0,0));
+            assert_eq!(hashmap.pickup_list.get(0).unwrap().parcellifetime, TsumugiControllerItemLifeTime::LifeCount(1));
+        }
+        {
+            //Antennaを送る（LifeCount(2),反応,Lifecycle(2),反応）ParcelはⅠ回目でLifeCountを消費して終了
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_antenna.antennalifetime = TsumugiControllerItemLifeTime::LifeCount(2);
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_antenna.into());
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_antenna.antennalifetime = TsumugiControllerItemLifeTime::Lifecycle(2);
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_antenna.into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 20);
+            assert_eq!(hashmap.hashListCount(),(0,0,2,0));
+            assert_eq!(hashmap.recept_list.get(0).unwrap().antennalifetime, TsumugiControllerItemLifeTime::LifeCount(1));
+            assert_eq!(hashmap.recept_list.get(1).unwrap().antennalifetime, TsumugiControllerItemLifeTime::Lifecycle(1));
+        }
+        {
+            //Antennaを送る（renew）
+            let mut tsumugi_antenna:TsumugiAntenna = tsumugi_pr.clone().into();
+            tsumugi_antenna.antennalifetime = TsumugiControllerItemLifeTime::LifeCount(3);
+            tsumugi_antenna.antenna_application = TsumugiControllerApplication::Renew;
+            tsumugi_channel_senders.recept_channel_sender.send(tsumugi_antenna.into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
+            assert_eq!(*parcelpackage.lock().unwrap(), 20);
+            assert_eq!(hashmap.hashListCount(),(0,0,1,0));
+            assert_eq!(hashmap.recept_list.get(0).unwrap().antennalifetime, TsumugiControllerItemLifeTime::LifeCount(3));
+        }
+    }
+    #[test]
+    fn controller_antennachain_nothread_test(){
+        let (mut controll_loop_kit, tsumugi_channel_senders)= ControllLoopKitStruct::new();
+        let mut parcelpackage = Arc::new(Mutex::new("NoMessage".to_string()));
+        {
+            //AntennaChainをつくる。AntennaChain[ParcelStr("pr"),AntennaChain[tsumugi_pr,tb_pr]]
+            let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<ParcelStr>::new();
+            let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet>::new();
+            let mut chain = crate::antenna_chain!(tsumugi_pr.clone(),tb_pr);
+            let mut parcelpack_clone = parcelpackage.clone();
+            let mut chain = chain.set_name("chain").subscribe(Box::new(move |(parcel,backet),send|{
+                let mut p = parcel.try_iter();
+                let mut b = backet.try_iter();
+                if let (Some(pitem),Some(bitem)) = (p.next(),b.next()){
+                    *parcelpack_clone.lock().unwrap()=pitem.package;
+                    send.clone().unwrap().send(());
+                    return TsumugiControllerItemState::Fulfilled;
+                }
+                return TsumugiControllerItemState::Deny;
+            }));
+            let mut parcel_receptname = tsumugi_pr.recept_name("pr");
+            let mut parcelpack_clone = parcelpackage.clone();
+            let mut chain2bool = AtomicBool::new(false);
+            let chain2 = crate::antenna_chain!(parcel_receptname,chain).subscribe(Box::new(move |(parcel,antenna_chain_recv),send|{
+                let mut p = parcel.try_iter();
+                let mut ac = antenna_chain_recv.try_iter();
+                if let Some(acitem) = ac.next(){
+                    chain2bool.store(true,Ordering::SeqCst);
+                }
+                if let (Some(pitem),true) = (p.next(),chain2bool.load(Ordering::SeqCst)){
+                    *parcelpack_clone.lock().unwrap()=pitem.package;
+                    return TsumugiControllerItemState::Fulfilled;
+                }
+                return TsumugiControllerItemState::Deny;
+            }));
+            tsumugi_channel_senders.recept_channel_sender.send(chain2.into());
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
+            assert_eq!(hashmap.hashListCount(),(0,0,1,1));
+            dbg!(&controll_loop_kit.depot_hashmap_typeof.0.get_mut(&TypeId::of::<ParcelStr>()).unwrap().recept_list_withid.get_mut(&"pr".to_string()).unwrap().get(0).unwrap().parcel_name.as_ref().unwrap());
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Backet>());
+            assert_eq!(hashmap.hashListCount(),(0,0,1,0));
+        }
+        {
+            //parcelを送る（Once）
+            let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr{ package: "ParcelIsReceived".to_string() });
+            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel);
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
+            assert_eq!(hashmap.hashListCount(),(0,0,1,1));
+            assert_eq!(*parcelpackage.lock().unwrap(),"NoMessage".to_string());
+        }
+        {
+            //parcelとbacketを送る（Once）
+            let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr{ package: "ParcelIsReceived".to_string() });
+            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel);
+            let mut new_backet = TsumugiParcelDistributor::new(Backet{ package: 51 });
+            tsumugi_channel_senders.pickup_channel_sender.send(new_backet);
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
+            assert_eq!(hashmap.hashListCount(),(0,0,1,1));
+            assert_eq!(*parcelpackage.lock().unwrap(),"ParcelIsReceived".to_string());
+        }
+        {
+            //parcel("pr")を送る（Once）
+            let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr{ package: "NamedParcelIsReceived".to_string() }).name("pr");
+            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel);
+            TsumugiController::execute_tsumugi_nothread(&mut controll_loop_kit);
+            let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
+            assert_eq!(*parcelpackage.lock().unwrap(),"NamedParcelIsReceived".to_string());
+            assert_eq!(hashmap.hashListCount(),(0,1,1,1));
+        }
     }
 
 }

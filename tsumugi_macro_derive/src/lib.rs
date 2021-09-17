@@ -63,8 +63,8 @@ pub fn pack(input: TokenStream) -> TokenStream {
     // FromStr::from_str("1").unwrap();
 }
 
-fn err(span: Span, msg: impl Into<String>) -> TokenStream {
-    let msg = msg.into();
+fn err(span: Span, msg: impl ToString) -> TokenStream {
+    let msg = msg.to_string();
     quote_spanned!(span.into()=> {
         compile_error!(#msg);
     }).into()
