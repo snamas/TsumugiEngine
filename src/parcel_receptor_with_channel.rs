@@ -1,6 +1,6 @@
 use tsumugi_macro::TsumugiAnyTrait;
-use std::sync::{  mpsc};
-use crate::antenna::{ TsumugiAntenna, TsumugiParcelInput};
+use std::sync::{mpsc};
+use crate::antenna::{TsumugiAntenna, TsumugiParcelInput};
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver};
 use crate::antenna_chain::TsumugiSpownReceiver;
@@ -12,6 +12,7 @@ pub struct TsumugiParcelReceptorWithChannel<S: Send + Clone> {
     pub(crate) parcel_name: Option<String>,
     pub(crate) antenna_name: Option<String>,
 }
+
 impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorWithChannel<T> {
     fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>) -> TsumugiControllerItemState {
         let movaditem = (*input_item).downcast_mut::<T>().unwrap();
@@ -28,23 +29,24 @@ impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorWith
 }
 
 impl<T: 'static + Send + Clone> TsumugiParcelReceptorWithChannel<T> {
-    pub fn new()->TsumugiParcelReceptorWithChannel<T>{
+    pub fn new() -> TsumugiParcelReceptorWithChannel<T> {
         let (sender, _receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
-        TsumugiParcelReceptorWithChannel{
+        TsumugiParcelReceptorWithChannel {
             sender: sender,
             parcel_name: None,
-            antenna_name: None
+            antenna_name: None,
         }
     }
-    pub fn antenna_name(mut self, name:impl ToString) ->Self{
+    pub fn antenna_name(mut self, name: impl ToString) -> Self {
         self.antenna_name = Some(name.to_string());
         self
     }
-    pub fn recept_name(mut self, name:impl ToString) ->Self{
+    pub fn recept_name(mut self, name: impl ToString) -> Self {
         self.parcel_name = Some(name.to_string());
         self
     }
 }
+
 impl<T: 'static + Send + Clone> TsumugiSpownReceiver for TsumugiParcelReceptorWithChannel<T> {
     type Output = Receiver<T>;
 
@@ -57,12 +59,12 @@ impl<T: 'static + Send + Clone> TsumugiSpownReceiver for TsumugiParcelReceptorWi
 
 #[cfg(test)]
 mod tests {
-    use tsumugi_macro::{TsumugiAnyTrait,TsumugiAny};
+    use tsumugi_macro::{TsumugiAnyTrait, TsumugiAny};
     use std::any::{Any, TypeId};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
     use crate::antenna::TsumugiAntenna;
 
-    #[derive(Clone,TsumugiAny)]
+    #[derive(Clone, TsumugiAny)]
     struct Parcel {
         package: i32,
     }
@@ -70,14 +72,14 @@ mod tests {
     #[test]
     fn namecheck_some() {
         let recept = TsumugiParcelReceptorWithChannel::<Parcel>::new().antenna_name("test");
-        let antenna:TsumugiAntenna = recept.into();
+        let antenna: TsumugiAntenna = recept.into();
         assert_eq!(antenna.antenna_name, Some(String::from("test")));
     }
 
     #[test]
     fn namecheck_none() {
         let recept = TsumugiParcelReceptorWithChannel::<Parcel>::new();
-        let antenna:TsumugiAntenna = recept.into();
+        let antenna: TsumugiAntenna = recept.into();
         assert_eq!(antenna.antenna_name, None);
     }
 }
