@@ -4,10 +4,14 @@ use std::pin::Pin;
 use std::task::{Context};
 use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
-use tsumugiEngine::antenna::{TsumugiAntenna, TsumugiControllerItemState};
-use tsumugiEngine::distributor::TsumugiParcelDistributor;
-use tsumugiEngine::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait};
-use tsumugiEngine::parcel_receptor::TsumugiParcelReceptor;
+use tsumugi::antenna::{TsumugiAntenna};
+use tsumugi::distributor::TsumugiParcelDistributor;
+use tsumugi::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait, TsumugiControllerItemState, TsumugiControllerItemLifeTime};
+use tsumugi::parcel_receptor::TsumugiParcelReceptor;
+use tsumugiKeyboardInput::spown_windows_key_controller;
+use tsumugi::signal::TsumugiSignal;
+use tsumugi::antenna_chain::TsumugiAntennaType;
+use tsumugiWindowController::spown_window_handler;
 
 struct ObjectA {
     input_item: Arc<Mutex<i32>>,
@@ -41,6 +45,18 @@ impl ObjectA {
         };
         tsumugi_pr.into()
     }
+    fn spownkeyantenna(&self, tc: &TsumugiController) -> TsumugiAntennaType {
+        let itemlock = self.input_item.clone();
+        let tsumugi_pr = TsumugiSignal::new("w")
+            .lifetime(TsumugiControllerItemLifeTime::Eternal)
+            .subscribe(Arc::new(move || {
+                let mut item = itemlock.lock().unwrap();
+                *item = 500;
+                dbg!(*item);
+                TsumugiControllerItemState::Fulfilled
+            }));
+        tsumugi_pr.into()
+    }
 }
 
 struct Observer {
@@ -48,6 +64,7 @@ struct Observer {
     local_tsumugi_sender: TsumugiChannelSenders,
 }
 
+//todo:Observerの仕様どうするか検討
 impl Observer {
     fn new(item: i32, tc: TsumugiChannelSenders) -> Observer {
         Observer { input_item: Arc::new(Mutex::new(item)), local_tsumugi_sender: tc.clone() }
@@ -65,6 +82,8 @@ impl TsumugiObject for ObjectA {
         tc.global_channel_sender.recept_channel_sender.send(receive_ticket.into());
         let mut recet_ticket = self.spownresetantenna(tc);
         tc.global_channel_sender.recept_channel_sender.send(recet_ticket.into());
+        let mut key_ticket = self.spownkeyantenna(tc);
+        tc.global_channel_sender.recept_channel_sender.send(key_ticket);
     }
 }
 
@@ -90,8 +109,8 @@ struct Reset {
 
 fn main() {
     let mut tsumugiroot = TsumugiController::new("Tsumugi".to_string());
-    tsumugiroot.execute_tsumugi_functions(vec![Box::new(spown_object_controller)]);
-    tsumugiroot.global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 12 }));
+    tsumugiroot.execute_tsumugi_functions(vec![spown_object_controller, spown_windows_key_controller, spown_window_handler]);
+    tsumugiroot.global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 12 }).into());
     loop {
         let mut word = String::new();
         std::io::stdin().read_line(&mut word).ok();
@@ -99,11 +118,11 @@ fn main() {
         if answer == "end" {
             break;
         } else if answer == "r" {
-            tsumugiroot.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Reset { package: 0 }));
+            tsumugiroot.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Reset { package: 0 }).into());
         } else {
-            tsumugiroot.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 13 }));
-            tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 14 }));
-            tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 15 }));
+            tsumugiroot.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 13 }).into());
+            tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 14 }).into());
+            tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().get("tsumugiobject").unwrap().global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 15 }).into());
         }
     }
     println!("Hello, world!");

@@ -1,4 +1,3 @@
-use tsumugi_macro::TsumugiAnyTrait;
 use std::sync::{Mutex, Arc};
 use crate::antenna::{TsumugiAntenna, TsumugiParcelInput, TsumugiFuture};
 use std::any::{TypeId, Any};

@@ -185,7 +185,6 @@ struct Backet2 {
 
 #[cfg(test)]
 mod tests {
-    use tsumugi_macro::{TsumugiAny};
     use std::any::{Any};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
     use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType, TsumugiReceptorChainTrait};

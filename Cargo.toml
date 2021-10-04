@@ -9,6 +9,14 @@ edition = "2018"
 members = [
     "tsumugi_macro",
     "tsumugi_macro_derive",
+    "tsumugi",
+    "tsumugiWindowController",
+    "tsugumi_windows_library",
+    "tsumugiKeyboardInput"
 ]
 [dependencies]
 tsumugi_macro = {path = "tsumugi_macro" }
+tsumugi = {path = "tsumugi" }
+tsumugiWindowController = {path = "tsumugiWindowController" }
+tsumugiKeyboardInput = {path = "tsumugiKeyboardInput" }
+tsugumi_windows_library = {path = "tsugumi_windows_library" }

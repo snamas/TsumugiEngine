@@ -1,4 +1,3 @@
-use tsumugi_macro::TsumugiAnyTrait;
 use std::sync::{mpsc};
 use crate::antenna::{TsumugiAntenna, TsumugiParcelInput};
 use std::any::{TypeId, Any};
@@ -59,12 +58,11 @@ impl<T: 'static + Send + Clone> TsumugiSpownReceiver for TsumugiParcelReceptorWi
 
 #[cfg(test)]
 mod tests {
-    use tsumugi_macro::{TsumugiAnyTrait, TsumugiAny};
     use std::any::{Any, TypeId};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
     use crate::antenna::TsumugiAntenna;
 
-    #[derive(Clone, TsumugiAny)]
+    #[derive(Clone)]
     struct Parcel {
         package: i32,
     }

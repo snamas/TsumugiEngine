@@ -8,13 +8,14 @@ pub struct Signal();
 pub struct TsumugiSignal {
     pub signallifetime: TsumugiControllerItemLifeTime,
     pub signal_name: String,
+    ///signalは毎サイクル処理を行うため、Antennaと挙動が異なる。
     pub current_state: TsumugiControllerItemState,
     pub on_receive_signal: Option<Arc<dyn Fn() -> TsumugiControllerItemState + Send + Sync>>,
     pub sender: Option<Sender<Signal>>,
 }
 
 impl TsumugiSignal {
-    fn new(name: impl ToString) -> Self {
+    pub fn new(name: impl ToString) -> Self {
         TsumugiSignal {
             signallifetime: TsumugiControllerItemLifeTime::Flash,
             signal_name: name.to_string(),
@@ -23,16 +24,16 @@ impl TsumugiSignal {
             sender: None,
         }
     }
-    fn spown_receiver(&mut self) -> Receiver<Signal> {
+    pub fn spown_receiver(&mut self) -> Receiver<Signal> {
         let (recept_channel_sender, recept_channnel_receiver): (Sender<Signal>, Receiver<Signal>) = mpsc::channel();
         self.sender = Some(recept_channel_sender);
         recept_channnel_receiver
     }
-    fn subscribe(mut self, func: Arc<dyn Fn() -> TsumugiControllerItemState + Send + Sync>) -> Self {
+    pub fn subscribe(mut self, func: Arc<dyn Fn() -> TsumugiControllerItemState + Send + Sync>) -> Self {
         self.on_receive_signal = Some(func);
         self
     }
-    fn lifetime(mut self, antenna_life_time: TsumugiControllerItemLifeTime) -> Self {
+    pub fn lifetime(mut self, antenna_life_time: TsumugiControllerItemLifeTime) -> Self {
         self.signallifetime = antenna_life_time;
         self
     }

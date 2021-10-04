@@ -5,6 +5,12 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumugi_macro/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumugi_macro_derive/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumugi/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumugiWindowController/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumugiKeyboardInput/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsugumi_windows_library/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumugiWinRT/bindings/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumugiWinRT/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

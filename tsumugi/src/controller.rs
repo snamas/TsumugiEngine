@@ -2,11 +2,10 @@ use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Arc, Mutex, Condvar};
 use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, sleep};
 use std::collections::HashMap;
 use crate::antenna::{TsumugiAntenna, TsumugiFuture};
 use crate::distributor::{TsumugiParcelDistributor, TsumugiDistributor};
-use tsumugi_macro::{TsumugiAnyTrait};
 use crate::antenna_chain::{TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType};
 use std::time::{Instant, Duration};
 use crate::signal::TsumugiSignal;
@@ -117,7 +116,7 @@ pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
     fn spown(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiController>;
     fn set_object(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
-    fn execute_tsumugi_functions(self: &Box<Self>, tsumugi_functions: Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>);
+    fn execute_tsumugi_functions(self: &Box<Self>, tsumugi_functions: Vec<fn(&Box<TsumugiController>) -> Box<TsumugiController>>);
     fn execute_tsumugi_thread(&self, receipt_channnel_receiver: Receiver<TsumugiAntennaType>, pickup_channnel_receiver: Receiver<TsumugiDistributor>) -> JoinHandle<()>;
 }
 
@@ -536,6 +535,7 @@ fn thread_loop_antenna_parcel(controll_loop_kit: &mut ControllLoopKitStruct) {
 }
 
 impl TsumugiControllerTrait for TsumugiController {
+    //todo:box化する意味はあんまりない気がする。
     fn new(tsumuginame: String) -> Box<TsumugiController> {
         let (recept_channel_sender, receipt_channnel_receiver): (Sender<TsumugiAntennaType>, Receiver<TsumugiAntennaType>) = mpsc::channel();
         let (pickup_channel_sender, pickup_channnel_receiver): (Sender<TsumugiDistributor>, Receiver<TsumugiDistributor>) = mpsc::channel();
@@ -567,7 +567,7 @@ impl TsumugiControllerTrait for TsumugiController {
         self.tsumugi_object_vector.append(&mut tsumugi_object_list);
     }
     /// TsumugiController生成関数の配列を受け取ってそれを使ってTsumugiControllerを生成していくよ
-    fn execute_tsumugi_functions(self: &Box<Self>, create_tsumugi_controller_funclist: Vec<Box<dyn Fn(&Box<TsumugiController>) -> Box<TsumugiController>>>) {
+    fn execute_tsumugi_functions(self: &Box<Self>, create_tsumugi_controller_funclist: Vec<fn(&Box<TsumugiController>) -> Box<TsumugiController>>) {
         for tsumugi_function in create_tsumugi_controller_funclist {
             let mut tc_new = tsumugi_function(self);
             self.global_connect_tsumugi_controller.lock().unwrap().insert(tc_new.tsumugi_controller_name.clone(), tc_new as Box<TsumugiController>);
@@ -578,7 +578,7 @@ impl TsumugiControllerTrait for TsumugiController {
             //todo:うまいことロックを使いこなそうcondvarというやつをつかって
             //todo:あとhashを値の管理に使う。
             let mut tumugi_receipt_list: Vec<Box<dyn TsumugiFuture + Send>> = Vec::new();
-            let mut pickup_list: Vec<Box<dyn TsumugiAnyTrait + Send>> = Vec::new();
+            let mut pickup_list: Vec<Box<dyn Any + Send>> = Vec::new();
             let condvar = Condvar::new();
             let mutex = Mutex::new(());
             let lock = mutex.lock().unwrap();
@@ -594,6 +594,8 @@ impl TsumugiControllerTrait for TsumugiController {
                 antennachain_hashmap,
             };
             loop {
+                //todo:とりあえず１msごとに更新する
+                sleep(Duration::new(0,1));
                 thread_loop_antenna_parcel(&mut controll_loop_kit);
             }
         }

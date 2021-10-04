@@ -1,5 +1,4 @@
 use std::any::{TypeId, Any};
-use tsumugi_macro::{TsumugiAnyTrait};
 use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
 use crate::parcel_receptor::TsumugiParcelReceptor;
 use crate::parcel_receptor_return_value::TsumugiParcelReceptorReturnValue;
@@ -20,14 +19,15 @@ pub trait TsumugiFuture {
     fn poll(self: &mut Self) -> TsumugiControllerItemState;
 }
 
-pub trait TsumugiParcelInput{
+pub trait TsumugiParcelInput {
     fn input_item(self: &mut Self, input_item: &mut Box<dyn Any + Send>) -> TsumugiControllerItemState;
 }
 
 pub trait TsumugiParcelOutput<T> {
     fn output_item(&self) -> &Box<T>;
 }
-impl <T: 'static + Send + Clone> From<TsumugiParcelReceptor<T>> for TsumugiAntenna{
+
+impl<T: 'static + Send + Clone> From<TsumugiParcelReceptor<T>> for TsumugiAntenna {
     fn from(tsumugi_parcel_receptor: TsumugiParcelReceptor<T>) -> Self {
         TsumugiAntenna {
             parcel: Box::from(tsumugi_parcel_receptor),
@@ -36,7 +36,7 @@ impl <T: 'static + Send + Clone> From<TsumugiParcelReceptor<T>> for TsumugiAnten
             parcel_name: None,
             antenna_name: None,
             current_state: TsumugiControllerItemState::Untreated,
-            antenna_application: TsumugiControllerApplication::New
+            antenna_application: TsumugiControllerApplication::New,
         }
     }
 }
@@ -52,12 +52,12 @@ impl<T: 'static + Send + Clone> From<TsumugiParcelReceptorWithChannel<T>> for Ts
             parcel_name: parcel_name,
             antenna_name: antenna_name,
             current_state: TsumugiControllerItemState::Untreated,
-            antenna_application: TsumugiControllerApplication::New
+            antenna_application: TsumugiControllerApplication::New,
         }
     }
 }
 
-impl<T: 'static + Send + Clone> From<TsumugiParcelReceptorReturnValue<T>> for TsumugiAntenna{
+impl<T: 'static + Send + Clone> From<TsumugiParcelReceptorReturnValue<T>> for TsumugiAntenna {
     fn from(item: TsumugiParcelReceptorReturnValue<T>) -> Self {
         TsumugiAntenna {
             parcel: Box::from(item),
@@ -66,7 +66,7 @@ impl<T: 'static + Send + Clone> From<TsumugiParcelReceptorReturnValue<T>> for Ts
             parcel_name: None,
             antenna_name: None,
             current_state: TsumugiControllerItemState::Untreated,
-            antenna_application: TsumugiControllerApplication::New
+            antenna_application: TsumugiControllerApplication::New,
         }
     }
 }
