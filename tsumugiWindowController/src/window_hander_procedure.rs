@@ -5,8 +5,9 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::_core::ptr::null_mut;
 use winapi::um::winnt::LPCWSTR;
 use std::io::Error;
+use std::ops::{Deref, DerefMut};
 use winapi::um::errhandlingapi::GetLastError;
-use tsugumi_windows_library::{BoolInto, to_wide_chars};
+use tsugumi_windows_library::{BoolInto, wide_char};
 
 use winapi::um::winuser::{GetKeyboardLayout, GetKeyboardState, WM_DESTROY};
 
@@ -53,7 +54,7 @@ impl TwWNDCLASSEXW{
                 hCursor: unsafe { LoadCursorW(null_mut(), IDC_ARROW) },
                 hbrBackground: null_mut(),
                 lpszMenuName: null_mut(),
-                lpszClassName: to_wide_chars(classname).as_ptr(),
+                lpszClassName: classname.to_wide_chars().as_ptr(),
                 hIconSm: 0 as HICON,
             }
         )
@@ -93,7 +94,7 @@ impl<'a> TwHWND<'a> {
     fn tw_create_window_ex_w_result(_wndclassexw: TwWNDCLASSEXW, window_rc: RECT) -> Result<TwHWND<'a>, Error> {
         let handle = unsafe {
             CreateWindowExW(0, _wndclassexw.tw_register_class_ex_w() as LPCWSTR,
-                            to_wide_chars("TsumuWindow").as_ptr(),
+                            "TsumuWindow".to_wide_chars().as_ptr(),
                             //通常、WS_VISIBLEは子ウインドウを作成する際に指定します。
                             WS_OVERLAPPEDWINDOW,
                             CW_USEDEFAULT,
@@ -124,7 +125,7 @@ impl<'a> TwHWND<'a> {
 
 impl TwMSG {
     ///ピークメッセージをを含んだMSG構造体を返す
-    pub fn tw_peek_message_w(hWnd: HWND, wMsgFilterMin: UINT, wMsgFilterMax: UINT, wRemoveMsg: UINT) -> TwMSG {
+    pub fn tw_peek_message_w(tw_hwnd: Option<&mut TwHWND>, wMsgFilterMin: UINT, wMsgFilterMax: UINT, wRemoveMsg: UINT) -> TwMSG {
         let mut msg = MSG {
             hwnd: null_mut(),
             message: 0,
@@ -132,6 +133,10 @@ impl TwMSG {
             lParam: 0,
             time: 0,
             pt: POINT { x: 0, y: 0 },
+        };
+        let hWnd:HWND = match tw_hwnd {
+            None => {null_mut()}
+            Some(v) => {v.0}
         };
         match unsafe { PeekMessageW(&mut msg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg).intobool() } {
             true => return TwMSG { value: msg, hasMessage: true },

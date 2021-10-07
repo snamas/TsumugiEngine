@@ -12,7 +12,9 @@ members = [
     "tsumugi",
     "tsumugiWindowController",
     "tsugumi_windows_library",
-    "tsumugiKeyboardInput"
+    "tsumugiKeyboardInput",
+    "tsumugiWinRT",
+    "tsumuGraphic_DirectX12"
 ]
 [dependencies]
 tsumugi_macro = {path = "tsumugi_macro" }
@@ -20,3 +22,5 @@ tsumugi = {path = "tsumugi" }
 tsumugiWindowController = {path = "tsumugiWindowController" }
 tsumugiKeyboardInput = {path = "tsumugiKeyboardInput" }
 tsugumi_windows_library = {path = "tsugumi_windows_library" }
+tsumugiWinRT = {path = "tsumugiWinRT" }
+tsumuGraphic_DirectX12 = {path = "tsumuGraphic_DirectX12" }

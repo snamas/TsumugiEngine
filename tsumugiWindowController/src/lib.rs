@@ -6,10 +6,12 @@ use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use winapi::Interface;
+use winapi::shared::minwindef::TRUE;
 use winapi::um::d3d12::D3D12GetDebugInterface;
 use winapi::um::d3d12sdklayers::ID3D12Debug;
-use winapi::um::winuser::{FindWindowExW, FindWindowW, PM_REMOVE, SW_SHOW, VK_CONTROL};
-use tsugumi_windows_library::to_wide_chars;
+use winapi::um::wingdi::TextOutW;
+use winapi::um::winuser::{FindWindowExW, FindWindowW, GetDC, InvalidateRect, PM_REMOVE, ReleaseDC, SW_SHOW, VK_CONTROL};
+use tsugumi_windows_library::wide_char;
 use tsumugi::controller::{TsumugiController, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::signal::TsumugiSignal;
 use tsumugiKeyboardInput::Tsumukey;
@@ -28,9 +30,29 @@ impl TsumugiObject for TsumugiWindowObject {
             (*arc_handle.lock().unwrap()).tw_show_window(SW_SHOW);
             let mut tsumugi_key:Tsumukey = Tsumukey::new();
             println!("{}",Error::last_os_error());
+            let thread_handle = arc_handle.clone();
+            thread::spawn(move ||{
+                let mut iCount = 0u32;
+
+                loop {
+                    sleep(Duration::new(0,100));
+                    unsafe{
+                        let hdc = GetDC((*thread_handle.lock().unwrap()).0.deref_mut());
+
+                        InvalidateRect((*thread_handle.lock().unwrap()).0.deref_mut() , null_mut() , TRUE);
+                        let text = format!("Count = {}" , iCount);
+                        TextOutW(hdc, 10, 10, text.to_wide_chars().as_ptr(), text.len() as i32);
+
+                        ReleaseDC((*thread_handle.lock().unwrap()).0.deref_mut() , hdc);
+                        iCount =  iCount + 1;
+
+                    }
+                }
+
+            });
             loop {
                 sleep(Duration::new(0,5));
-                let mut cpmsg = TwMSG::tw_peek_message_w((*arc_handle.lock().unwrap()).0.deref_mut(), 0, 0, PM_REMOVE);
+                let mut cpmsg = TwMSG::tw_peek_message_w(None, 0, 0, PM_REMOVE);
                 if cpmsg.hasMessage {
                     cpmsg.tw_translate_message();
                     cpmsg.tw_dispatch_message_w();

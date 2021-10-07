@@ -11,6 +11,12 @@
       <sourceFolder url="file://$MODULE_DIR$/tsugumi_windows_library/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumugiWinRT/bindings/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumugiWinRT/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/bindings-1071980fb238d86b/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/proc-macro2-31e4f657381044ef/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/syn-e5e33ff3f0a56cf8/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-50dae9f903b9b822/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-9ed08313571603d5/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumuGraphic_DirectX12/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
