@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+use std::os::windows::ffi::OsStrExt;
 use winapi::shared::minwindef::{BOOL, TRUE, FALSE};
 
 pub trait BoolInto {
@@ -17,10 +19,20 @@ impl BoolInto for BOOL {
         }
     }
 }
-pub fn to_wide_chars(s: &str) -> Vec<u16> {
-    use std::ffi::OsStr;
-    use std::os::windows::ffi::OsStrExt;
-    OsStr::new(s).encode_wide().chain(Some(0).into_iter()).collect()
+pub trait wide_char{
+    fn to_wide_chars(&self) -> Vec<u16>;
+}
+
+impl wide_char for str{
+    fn to_wide_chars(&self) -> Vec<u16> {
+        OsStr::new(self).encode_wide().chain(Some(0).into_iter()).collect()
+    }
+}
+
+impl wide_char for String{
+    fn to_wide_chars(&self) -> Vec<u16> {
+        OsStr::new(self).encode_wide().chain(Some(0).into_iter()).collect()
+    }
 }
 
 

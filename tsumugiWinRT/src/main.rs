@@ -1,14 +1,10 @@
-use tsumugiWinRT::windowsBuild::Windows::Data::Xml::Dom::XmlDocument;
-use tsumugiWinRT::windowsBuild::Windows::Win32::Foundation::CloseHandle;
-use tsumugiWinRT::windowsBuild::Windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForSingleObject};
-use tsumugiWinRT::windowsBuild::Windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxA};
-
+use bindings::Windows::{
+    Data::Xml::Dom::XmlDocument,
+    Win32::Foundation::CloseHandle,
+    Win32::System::Threading::{CreateEventW, SetEvent, WaitForSingleObject},
+    Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxA}
+};
 fn main() -> windows::Result<()> {
-    let mut path = ::std::path::PathBuf::from(
-        ::std::env::var("OUT_DIR").expect("No `OUT_DIR` env variable set"),
-    );
-
-    println!("{:?}", path);
     let doc = XmlDocument::new()?;
 
     doc.LoadXml("<html>hello world</html>")?;

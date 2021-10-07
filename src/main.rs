@@ -109,7 +109,7 @@ struct Reset {
 
 fn main() {
     let mut tsumugiroot = TsumugiController::new("Tsumugi".to_string());
-    tsumugiroot.execute_tsumugi_functions(vec![spown_object_controller, spown_windows_key_controller, spown_window_handler]);
+    tsumugiroot.execute_tsumugi_functions(vec![spown_object_controller, spown_window_handler]);
     tsumugiroot.global_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(Parcel { package: 12 }).into());
     loop {
         let mut word = String::new();
