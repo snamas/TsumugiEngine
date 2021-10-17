@@ -35,9 +35,9 @@ impl Tsumukey{
 struct TsumugiInputKeyObject();
 
 impl TsumugiObject for TsumugiInputKeyObject {
-    fn on_create(&self, tc: &TsumugiController) {
+    fn on_create(&self, tct: &tsumugi::controller::TsumugiController_thread) {
         let mut tsumugi_key:Tsumukey = Tsumukey([0;256]);
-        let mut keysender = tc.global_channel_sender.pickup_channel_sender.clone();
+        let mut keysender = tct.tc.global_channel_sender.pickup_channel_sender.clone();
         thread::spawn(move ||{
             loop {
                 let mut  nummPID = 0u32;
@@ -64,7 +64,7 @@ impl TsumugiObject for TsumugiInputKeyObject {
 pub fn spown_windows_key_controller(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
     let mut newtc = tc.spown("tsumugiKeyController".to_string());
 
-    newtc.set_object(vec![
+    newtc.set_objects(vec![
         Box::new(TsumugiInputKeyObject()),
     ]);
     return newtc;

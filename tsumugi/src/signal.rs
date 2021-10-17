@@ -1,6 +1,6 @@
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use crate::controller::{TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerApplication};
+use crate::controller::{TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerApplication, TsumugiController_thread};
 
 pub struct Signal();
 
@@ -10,7 +10,7 @@ pub struct TsumugiSignal {
     pub signal_name: String,
     ///signalは毎サイクル処理を行うため、Antennaと挙動が異なる。
     pub current_state: TsumugiControllerItemState,
-    pub on_receive_signal: Option<Arc<dyn Fn() -> TsumugiControllerItemState + Send + Sync>>,
+    pub on_receive_signal: Option<Arc<dyn Fn(&TsumugiController_thread) -> TsumugiControllerItemState + Send + Sync>>,
     pub sender: Option<Sender<Signal>>,
 }
 
@@ -30,6 +30,12 @@ impl TsumugiSignal {
         recept_channnel_receiver
     }
     pub fn subscribe(mut self, func: Arc<dyn Fn() -> TsumugiControllerItemState + Send + Sync>) -> Self {
+        self.on_receive_signal = Some(Arc::new(move |tct| {
+            func()
+        }));
+        self
+    }
+    pub fn subscribe_tc(mut self, func: Arc<dyn Fn(&TsumugiController_thread) -> TsumugiControllerItemState + Send + Sync>) -> Self {
         self.on_receive_signal = Some(func);
         self
     }

@@ -1,15 +1,16 @@
-use crate::antenna::{TsumugiFuture, TsumugiParcelInput, TsumugiAntenna};
-use std::sync::Arc;
 use std::any::Any;
+use std::sync::Arc;
+use crate::antenna::{TsumugiAntenna, TsumugiFuture, TsumugiParcelInput};
 use crate::controller::{TsumugiController_thread, TsumugiControllerItemState};
 
 #[derive(Clone)]
-pub struct TsumugiParcelReceptor<T: Send + Clone> {
-    pub parcel: Box<T>,
-    pub subscribe: Option<Arc<dyn Fn(&TsumugiParcelReceptor<T>, &TsumugiController_thread) -> TsumugiControllerItemState + Send + Sync>>,
+pub struct TsumugiParcelReceptorNoVal<T: Send + Clone> {
+    pub parcel: Option<Box<T>>,
+    pub subscribe: Option<Arc<dyn Fn(&TsumugiParcelReceptorNoVal<T>, &TsumugiController_thread) -> TsumugiControllerItemState + Send + Sync>>,
 }
 
-impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptor<T> {
+impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptorNoVal<T> {
+    //todo:ここparcelはOption型だが、絶対に値があることは分かっている
     fn poll(self: &mut Self, tct: &TsumugiController_thread) -> TsumugiControllerItemState {
         if let Some(subscribe) = &self.subscribe {
             return subscribe.as_ref()(&self, tct);
@@ -18,17 +19,17 @@ impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptor<T> {
     }
 }
 
-impl<T: 'static + Send + Clone> TsumugiParcelReceptor<T> {
-    pub fn new(parcel: T) -> TsumugiParcelReceptor<T> {
-        TsumugiParcelReceptor { parcel: Box::new(parcel), subscribe: None }
+impl<T: 'static + Send + Clone> TsumugiParcelReceptorNoVal<T> {
+    pub fn new() -> TsumugiParcelReceptorNoVal<T> {
+        TsumugiParcelReceptorNoVal { parcel: None, subscribe: None }
     }
-    pub fn subscribe(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptor<T>) -> TsumugiControllerItemState + Send + Sync>) -> Self {
+    pub fn subscribe(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptorNoVal<T>) -> TsumugiControllerItemState + Send + Sync>) -> Self {
         self.subscribe = Some(Arc::new(move |parcel, tct| {
             func(parcel)
         }));
         self
     }
-    pub fn subscribe_tc(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptor<T>, &TsumugiController_thread) -> TsumugiControllerItemState + Send + Sync>) -> Self {
+    pub fn subscribe_tc(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptorNoVal<T>, &TsumugiController_thread) -> TsumugiControllerItemState + Send + Sync>) -> Self {
         self.subscribe = Some(func);
         self
     }
@@ -37,13 +38,14 @@ impl<T: 'static + Send + Clone> TsumugiParcelReceptor<T> {
     }
 }
 
-impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptor<T> {
+impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorNoVal<T> {
     fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_thread) -> TsumugiControllerItemState {
         let movaditem = (*input_item).downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)
         };
-        *self.parcel = *receive_item.clone();
+        //ここ不安定要素
+        self.parcel = Some(receive_item.clone());
         let receive_item = receive_item as Box<dyn Any + Send>;
         //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。
         //片方をforgetしてあげないとinputItemとreceive_item両方でメモリ解放が行われてしまう。

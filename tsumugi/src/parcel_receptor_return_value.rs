@@ -1,7 +1,7 @@
 use std::sync::{Mutex, Arc};
 use crate::antenna::{TsumugiAntenna, TsumugiParcelInput, TsumugiFuture};
 use std::any::{TypeId, Any};
-use crate::controller::TsumugiControllerItemState;
+use crate::controller::{TsumugiController_thread, TsumugiControllerItemState};
 
 #[derive(Clone)]
 pub struct TsumugiParcelReceptorReturnValue<T: Send + Clone> {
@@ -22,7 +22,7 @@ impl<T: 'static + Send + Clone + Sync> TsumugiAntennaTraitWithValue<T> for Tsumu
 }
 
 impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptorReturnValue<T> {
-    fn poll(self: &mut Self) -> TsumugiControllerItemState {
+    fn poll(self: &mut Self, tct: &TsumugiController_thread) -> TsumugiControllerItemState {
         if let Some(fnc) = self.on_change.as_ref() {
             return fnc.as_ref()(&self);
         }
@@ -31,7 +31,7 @@ impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptorReturnValue<T> {
 }
 
 impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorReturnValue<T> {
-    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>) -> TsumugiControllerItemState {
+    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_thread) -> TsumugiControllerItemState {
         let movaditem = (*input_item).downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)
@@ -42,7 +42,7 @@ impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorRetu
             result = TsumugiControllerItemState::Fulfilled;
         }
         if result == TsumugiControllerItemState::Fulfilled {
-            result = self.poll();
+            result = self.poll(tct);
         }
         let receive_item = receive_item as Box<dyn Any + Send>;
         //この時点では、inputItemとreceive_itemは同じメモリアドレスの値となっている。

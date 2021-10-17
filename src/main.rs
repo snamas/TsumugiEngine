@@ -6,7 +6,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use tsumugi::antenna::{TsumugiAntenna};
 use tsumugi::distributor::TsumugiParcelDistributor;
-use tsumugi::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait, TsumugiControllerItemState, TsumugiControllerItemLifeTime};
+use tsumugi::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait, TsumugiControllerItemState, TsumugiControllerItemLifeTime, TsumugiController_thread};
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumugiKeyboardInput::spown_windows_key_controller;
 use tsumugi::signal::TsumugiSignal;
@@ -36,7 +36,7 @@ impl ObjectA {
         let itemlock = self.input_item.clone();
         let tsumugi_pr = TsumugiParcelReceptor {
             parcel: Box::new(Reset { package: 0 }),
-            subscribe: Some(Arc::new(move |reset| {
+            subscribe: Some(Arc::new(move |reset, tct| {
                 let mut item = itemlock.lock().unwrap();
                 *item = reset.parcel.package;
                 dbg!(*item);
@@ -77,20 +77,20 @@ impl Observer {
 }
 
 impl TsumugiObject for ObjectA {
-    fn on_create(&self, tc: &TsumugiController) {
-        let mut receive_ticket = self.spowntsumugiantenna(tc);
-        tc.global_channel_sender.recept_channel_sender.send(receive_ticket.into());
-        let mut recet_ticket = self.spownresetantenna(tc);
-        tc.global_channel_sender.recept_channel_sender.send(recet_ticket.into());
-        let mut key_ticket = self.spownkeyantenna(tc);
-        tc.global_channel_sender.recept_channel_sender.send(key_ticket);
+    fn on_create(&self, tc: &TsumugiController_thread) {
+        let mut receive_ticket = self.spowntsumugiantenna(&tc.tc);
+        tc.tc.global_channel_sender.recept_channel_sender.send(receive_ticket.into());
+        let mut recet_ticket = self.spownresetantenna(&tc.tc);
+        tc.tc.global_channel_sender.recept_channel_sender.send(recet_ticket.into());
+        let mut key_ticket = self.spownkeyantenna(&tc.tc);
+        tc.tc.global_channel_sender.recept_channel_sender.send(key_ticket);
     }
 }
 
 pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
     let mut newtc = tc.spown("tsumugiobject".to_string());
 
-    newtc.set_object(vec![
+    newtc.set_objects(vec![
         Box::new(ObjectA { input_item: Arc::new(Mutex::new(200)), input_item_local: Arc::new(Mutex::new(0)), local_tsumugi_sender: newtc.local_channel_sender.clone() }),
         // Box::new(ObjectA { input_item: Arc::new(Mutex::new(500)), input_item_local: Arc::new(Mutex::new(0)), local_tsumugi_sender: newtc.local_channel_sender.clone() })
     ]);

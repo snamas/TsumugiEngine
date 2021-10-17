@@ -17,6 +17,25 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-9ed08313571603d5/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumuGraphic_DirectX12/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumugi_windows_library/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumuStockCPU/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/bindings-287b06ab55739a96/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/crc32fast-c71fb6dcf75c42bf/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/generic-array-a7c5631141ae5684/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/getrandom-e1d4a4a0e7bbf3ba/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/libm-f7bcbd0fc7e9bd1d/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-integer-9bfee6b4ddb62a45/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-integer-b72d82b463b31e5b/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-iter-decb7746491e15a0/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-rational-7a05fe98b6c1d516/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-traits-742fc191b26d1446/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-traits-83e3243e4c0636a6/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/proc-macro2-1cea202c6000f8d9/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/ryu-e517741c9d6a22fe/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde-8fb039bf50c3775c/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_derive-6b69b460a30a262e/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_json-7066e14a81c4e61c/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/typenum-37cfc24681465cdd/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumuObject/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

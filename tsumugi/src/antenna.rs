@@ -2,7 +2,8 @@ use std::any::{TypeId, Any};
 use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
 use crate::parcel_receptor::TsumugiParcelReceptor;
 use crate::parcel_receptor_return_value::TsumugiParcelReceptorReturnValue;
-use crate::controller::{TsumugiControllerApplication, TsumugiControllerItemState, TsumugiControllerItemLifeTime};
+use crate::controller::{TsumugiControllerApplication, TsumugiControllerItemState, TsumugiControllerItemLifeTime, TsumugiController_thread};
+use crate::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 
 
 pub struct TsumugiAntenna {
@@ -16,21 +17,46 @@ pub struct TsumugiAntenna {
 }
 
 pub trait TsumugiFuture {
-    fn poll(self: &mut Self) -> TsumugiControllerItemState;
+    fn poll(self: &mut Self, tct: &TsumugiController_thread) -> TsumugiControllerItemState;
 }
 
 pub trait TsumugiParcelInput {
-    fn input_item(self: &mut Self, input_item: &mut Box<dyn Any + Send>) -> TsumugiControllerItemState;
+    fn input_item(self: &mut Self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_thread) -> TsumugiControllerItemState;
 }
 
 pub trait TsumugiParcelOutput<T> {
     fn output_item(&self) -> &Box<T>;
 }
 
+impl TsumugiAntenna {
+    pub fn lifetime(mut self, lifetime: TsumugiControllerItemLifeTime) -> Self {
+        self.antennalifetime = lifetime;
+        self
+    }
+    pub fn name(mut self, name: impl ToString) -> Self {
+        self.antenna_name = Some(name.to_string());
+        self
+    }
+}
+
 impl<T: 'static + Send + Clone> From<TsumugiParcelReceptor<T>> for TsumugiAntenna {
     fn from(tsumugi_parcel_receptor: TsumugiParcelReceptor<T>) -> Self {
         TsumugiAntenna {
             parcel: Box::from(tsumugi_parcel_receptor),
+            parceltype: TypeId::of::<T>(),
+            antennalifetime: TsumugiControllerItemLifeTime::Eternal,
+            parcel_name: None,
+            antenna_name: None,
+            current_state: TsumugiControllerItemState::Untreated,
+            antenna_application: TsumugiControllerApplication::New,
+        }
+    }
+}
+
+impl<T: 'static + Send + Clone> From<TsumugiParcelReceptorNoVal<T>> for TsumugiAntenna {
+    fn from(tsumugi_parcel_receptor_noval: TsumugiParcelReceptorNoVal<T>) -> Self {
+        TsumugiAntenna {
+            parcel: Box::from(tsumugi_parcel_receptor_noval),
             parceltype: TypeId::of::<T>(),
             antennalifetime: TsumugiControllerItemLifeTime::Eternal,
             parcel_name: None,

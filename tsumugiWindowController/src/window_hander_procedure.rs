@@ -1,11 +1,12 @@
 use winapi::shared::windef::{HWND, RECT, HWND__, HICON, POINT};
 use winapi::shared::minwindef::{UINT, WPARAM, LPARAM, LRESULT, HINSTANCE, FALSE, BOOL, TRUE, ATOM};
-use winapi::um::winuser::{PostQuitMessage, DefWindowProcW, WNDCLASSEXW, CS_OWNDC, LoadCursorW, IDC_ARROW, AdjustWindowRectEx, WS_OVERLAPPEDWINDOW, CreateWindowExW, RegisterClassExW, CW_USEDEFAULT, UnregisterClassW, ShowWindow, MSG, PeekMessageW, TranslateMessage, DispatchMessageW, WM_QUIT, ShowWindowAsync, GetFocus};
+use winapi::um::winuser::{PostQuitMessage, DefWindowProcW, WNDCLASSEXW, CS_OWNDC, LoadCursorW, IDC_ARROW, AdjustWindowRectEx, WS_OVERLAPPEDWINDOW, CreateWindowExW, RegisterClassExW, CW_USEDEFAULT, UnregisterClassW, ShowWindow, MSG, PeekMessageW, TranslateMessage, DispatchMessageW, WM_QUIT, ShowWindowAsync, GetFocus, GetMessageW};
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::_core::ptr::null_mut;
 use winapi::um::winnt::LPCWSTR;
 use std::io::Error;
 use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
 use winapi::um::errhandlingapi::GetLastError;
 use tsugumi_windows_library::{BoolInto, wide_char};
 
@@ -19,7 +20,9 @@ use winapi::um::winuser::{GetKeyboardLayout, GetKeyboardState, WM_DESTROY};
 //     return 0;
 // }
 
-pub struct TwHWND<'a>(pub &'a mut HWND__);
+pub struct TwHWND(pub &'static mut HWND__);
+#[derive(Clone)]
+pub struct ArcHWND(pub Arc<Mutex<TwHWND>>);
 pub struct TwWNDCLASSEXW(WNDCLASSEXW);
 
 
@@ -66,8 +69,8 @@ impl TwWNDCLASSEXW{
         unsafe { UnregisterClassW(self.0.lpszClassName, self.0.hInstance).intobool() }
     }
 }
-impl<'a> TwHWND<'a> {
-    pub fn new(mut _wndclassexw_opt: Option<TwWNDCLASSEXW>, mut window_rc_opt: Option<RECT>) -> TwHWND<'a> {
+impl TwHWND {
+    pub fn new(mut _wndclassexw_opt: Option<TwWNDCLASSEXW>, mut window_rc_opt: Option<RECT>) -> TwHWND {
         let mut _wndclassexw = match _wndclassexw_opt {
             Some(v) => { v }
             None => {
@@ -91,7 +94,7 @@ impl<'a> TwHWND<'a> {
     fn tw_adjust_window_rect_ex(mut window_rc: RECT) {
         unsafe { AdjustWindowRectEx(&mut window_rc, WS_OVERLAPPEDWINDOW, FALSE, 0); }
     }
-    fn tw_create_window_ex_w_result(_wndclassexw: TwWNDCLASSEXW, window_rc: RECT) -> Result<TwHWND<'a>, Error> {
+    fn tw_create_window_ex_w_result(_wndclassexw: TwWNDCLASSEXW, window_rc: RECT) -> Result<TwHWND, Error> {
         let handle = unsafe {
             CreateWindowExW(0, _wndclassexw.tw_register_class_ex_w() as LPCWSTR,
                             "TsumuWindow".to_wide_chars().as_ptr(),
@@ -139,6 +142,24 @@ impl TwMSG {
             Some(v) => {v.0}
         };
         match unsafe { PeekMessageW(&mut msg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg).intobool() } {
+            true => return TwMSG { value: msg, hasMessage: true },
+            false => return TwMSG { value: msg, hasMessage: false }
+        }
+    }
+    pub fn tw_get_message_w(tw_hwnd: Option<&mut TwHWND>, wMsgFilterMin: UINT, wMsgFilterMax: UINT) -> TwMSG {
+        let mut msg = MSG {
+            hwnd: null_mut(),
+            message: 0,
+            wParam: 0,
+            lParam: 0,
+            time: 0,
+            pt: POINT { x: 0, y: 0 },
+        };
+        let hWnd:HWND = match tw_hwnd {
+            None => {null_mut()}
+            Some(v) => {v.0}
+        };
+        match unsafe { GetMessageW(&mut msg, hWnd, wMsgFilterMin, wMsgFilterMax).intobool() } {
             true => return TwMSG { value: msg, hasMessage: true },
             false => return TwMSG { value: msg, hasMessage: false }
         }

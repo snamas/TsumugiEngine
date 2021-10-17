@@ -14,7 +14,9 @@ members = [
     "tsumugi_windows_library",
     "tsumugiKeyboardInput",
     "tsumugiWinRT",
-    "tsumuGraphic_DirectX12"
+    "tsumuGraphic_DirectX12",
+    "tsumuStockCPU",
+    "tsumuObject"
 ]
 [dependencies]
 tsumugi_macro = {path = "tsumugi_macro" }
@@ -24,3 +26,5 @@ tsumugiKeyboardInput = {path = "tsumugiKeyboardInput" }
 tsugumi_windows_library = {path = "tsumugi_windows_library" }
 tsumugiWinRT = {path = "tsumugiWinRT" }
 tsumuGraphic_DirectX12 = {path = "tsumuGraphic_DirectX12" }
+tsumuStockCPU = {path = "tsumuStockCPU" }
+tsumuObject = {path = "tsumuObject" }
