@@ -189,8 +189,8 @@ mod tests {
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
     use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType, TsumugiReceptorChainTrait};
     use crate::antenna_chain::TsumugiReceptorChain;
-    use crate::controller::TsumugiControllerItemState;
-    use std::sync::{Arc, Mutex};
+    use crate::controller::{TsumugiChannelSenders, TsumugiController, TsumugiController_thread, TsumugiControllerItemState};
+    use std::sync::{Arc, mpsc, Mutex};
 
     #[derive(Clone)]
     struct Parcel {
@@ -219,6 +219,16 @@ mod tests {
                 ChainNameEnum::Antennachain(chain)
             }
             TsumugiAntennaType::TsumugiSingal(value) => { ChainNameEnum::Signal(value.signal_name.clone()) }
+        }
+    }
+
+    impl TsumugiController_thread {
+        fn new_() -> Self {
+            let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
+            let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
+            let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
+
+            TsumugiController_thread::new(tsumugi_channel_senders)
         }
     }
 
@@ -268,6 +278,8 @@ mod tests {
 
     #[test]
     fn chaincheck_antenna_recept() {
+        let mut tc = TsumugiController_thread::new_();
+
         let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new();
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
         let mut chain = antenna_chain!(tsumugi_pr.clone(),tb_pr.clone());
@@ -282,9 +294,9 @@ mod tests {
         if let Some(TsumugiAntennaType::TsumugiAntenna(parcelantenna)) = chain.tsumugi_antenna_list.get_mut(0) {
             println!("set");
             let mut parcelbox: Box<dyn Any + Send> = Box::new(Parcel { package: 0 });
-            parcelantenna.parcel.input_item(&mut parcelbox);
+            parcelantenna.parcel.input_item(&mut parcelbox, &tc);
             let mut parcelbox: Box<dyn Any + Send> = Box::new(Parcel { package: 50 });
-            parcelantenna.parcel.input_item(&mut parcelbox);
+            parcelantenna.parcel.input_item(&mut parcelbox, &tc);
         }
         dbg!(chain.parcel.0.try_iter().next().unwrap().package,0);
         chain.execute_subscribe();
