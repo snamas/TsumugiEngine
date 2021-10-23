@@ -134,6 +134,7 @@ pub trait TsumugiObject {
 pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiController>;
     fn spown(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiController>;
+    fn set_object(&mut self, tsumugi_object:Box<dyn TsumugiObject + Send>);
     fn set_objects(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
     fn find(&self, Controller_name: &str) -> TsumugiChannelSenders;
     fn execute_tsumugi_functions(self: &Box<Self>, tsumugi_functions: Vec<fn(&Box<TsumugiController>) -> Box<TsumugiController>>);
@@ -142,6 +143,7 @@ pub trait TsumugiControllerTrait {
 
 impl TsumugiControllerTrait for TsumugiController {
     //todo:box化する意味はあんまりない気がする。
+    //todo:newとspownでコードの一部がかぶっているのをなんとかしたい
     fn new(tsumuginame: String) -> Box<TsumugiController> {
         let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
         let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
@@ -166,18 +168,37 @@ impl TsumugiControllerTrait for TsumugiController {
     }
 
     fn spown(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiController> {
-        let mut tc = Self::new(tsumuginame);
-        tc.global_channel_sender = self.global_channel_sender.clone();
+        let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
+        let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
+        let (object_sender, object_receiver) = mpsc::channel();
+        let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
+        let mut tsumugi_connect_list: Vec<String> = Vec::new();
+        let mut tc = Box::new(TsumugiController {
+            local_channel_sender: tsumugi_channel_senders.clone(),
+            global_channel_sender: self.global_channel_sender.clone(),
+            connect_tsumugi_controller: tsumugi_connect_list,
+            global_connect_tsumugi_controller: self.global_connect_tsumugi_controller.clone(),
+            tsumugi_controller_name: tsumuginame,
+            tsumugi_object_sender: object_sender,
+        });
+        let receivers = Thread_receivers {
+            distributer: pickup_channnel_receiver,
+            antenna: receipt_channnel_receiver,
+            object: object_receiver,
+        };
+        tc.execute_tsumugi_thread(receivers);
         return tc;
     }
-
+    fn set_object(&mut self, mut tsumugi_object:Box<dyn TsumugiObject + Send>){
+        self.tsumugi_object_sender.send(tsumugi_object);
+    }
     fn set_objects(&mut self, mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>) {
         for tsumugi_object in tsumugi_object_list {
             self.tsumugi_object_sender.send(tsumugi_object);
         }
     }
     fn find(&self, Controller_name: &str) -> TsumugiChannelSenders {
-        self.global_connect_tsumugi_controller.lock().unwrap().get(Controller_name).unwrap().local_channel_sender.clone()
+        self.global_connect_tsumugi_controller.lock().unwrap().get(Controller_name).unwrap_or_else(||{panic!("{}は存在しないよ",Controller_name)}).local_channel_sender.clone()
     }
     /// TsumugiController生成関数の配列を受け取って,それを使ってTsumugiControllerを生成していくよ
     fn execute_tsumugi_functions(self: &Box<Self>, create_tsumugi_controller_funclist: Vec<fn(&Box<TsumugiController>) -> Box<TsumugiController>>) {
@@ -223,6 +244,10 @@ impl TsumugiController_thread {
             tsumugi_object.on_create(self);
         }
         self.tsumugi_object_vector.append(&mut tsumugi_object_list);
+    }
+    fn set_object(&mut self, mut tsumugi_object: Box<dyn TsumugiObject + Send>) {
+        tsumugi_object.on_create(self);
+        self.tsumugi_object_vector.push(tsumugi_object);
     }
     fn thread_loop_antenna_parcel(&mut self, controll_loop_kit: &mut ControllLoopKitStruct) {
         let mut pickup_iter = controll_loop_kit.thread_receivers.distributer.try_iter();
