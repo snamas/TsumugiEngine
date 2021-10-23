@@ -12,13 +12,6 @@ use tsugumi_windows_library::{BoolInto, wide_char};
 
 use winapi::um::winuser::{GetKeyboardLayout, GetKeyboardState, WM_DESTROY};
 
-// extern "C" fn window_procedure(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-//     match msg {
-//         WM_DESTROY => unsafe { PostQuitMessage(0) },
-//         _ => return unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
-//     };
-//     return 0;
-// }
 
 pub struct TwHWND(pub &'static mut HWND__);
 #[derive(Clone)]

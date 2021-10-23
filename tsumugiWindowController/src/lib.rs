@@ -33,24 +33,6 @@ struct TsumugiWindowObject();
 
 static COUNT: AtomicU64 = AtomicU64::new(0);
 
-fn pushW(thread_handle: Box<ArcHWND>, globalreceptor: Arc<Sender<TsumugiAntennaType>>) {
-    {
-        let hwnd_dist = TsumugiSignal::new("w").subscribe(Arc::new(move || {
-            unsafe {
-                let hdc = GetDC((*thread_handle.0.lock().unwrap()).0.deref_mut());
-                InvalidateRect((*thread_handle.0.lock().unwrap()).0.deref_mut(), null_mut(), TRUE);
-                let text = format!("Count = {}", COUNT.load(Ordering::SeqCst));
-                TextOutW(hdc, 10, 10, text.to_wide_chars().as_ptr(), text.len() as i32);
-
-                ReleaseDC((*thread_handle.0.lock().unwrap()).0.deref_mut(), hdc);
-                COUNT.fetch_add(1, Ordering::SeqCst);
-            }
-            TsumugiControllerItemState::Fulfilled
-        })).lifetime(TsumugiControllerItemLifeTime::Eternal);
-        globalreceptor.send(hwnd_dist.into());
-    }
-}
-
 fn receptHWND(tc: &TsumugiController_thread) {
     let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
         let thread_handle = arc_hwnd.parcel.clone().unwrap();
@@ -100,8 +82,7 @@ impl TsumugiObject for TsumugiWindowObject {
                 tsumugi_key.tk_get_keyboard_state();
                 //2を押した。
                 if tsumugi_key.tk_key_status(87) {
-                    println!("w");
-                    globalsender.send(TsumugiSignal::new("w").into());
+                    globalsender.send(TsumugiSignal::new("w").lifetime(TsumugiControllerItemLifeTime::Flash).into());
                 }
             }
         });

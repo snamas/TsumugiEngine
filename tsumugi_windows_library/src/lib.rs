@@ -1,6 +1,9 @@
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
+use winapi::ctypes::c_long;
 use winapi::shared::minwindef::{BOOL, TRUE, FALSE};
+use winapi::um::winnt::HRESULT;
+use winapi::shared::winerror::S_OK;
 
 pub trait BoolInto {
     fn intobool(self) -> bool;
@@ -16,6 +19,17 @@ impl BoolInto for BOOL {
             TRUE => true,
             FALSE => false,
             _ => false
+        }
+    }
+}
+pub trait HRESULTinto {
+    fn result(self) -> Result<i32, i32>;
+}
+impl HRESULTinto for i32 {
+    fn result(self) -> Result<HRESULT, HRESULT> {
+        match self {
+            S_OK => Ok(self),
+            _ => Err(self)
         }
     }
 }

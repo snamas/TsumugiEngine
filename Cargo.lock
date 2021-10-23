@@ -455,6 +455,11 @@ dependencies = [
 name = "tsumuGraphic_DirectX12"
 version = "0.1.0"
 dependencies = [
+ "tsugumi_windows_library",
+ "tsumuObject",
+ "tsumuStockCPU",
+ "tsumugi",
+ "tsumugiWindowController",
  "winapi",
 ]
 

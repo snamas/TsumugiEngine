@@ -5,15 +5,16 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::atomic::Ordering::SeqCst;
 use nalgebra::{Point, Point2, Point3};
 use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::TsumugiControllerItemLifeTime::Eternal;
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumuStockCPU::{TsumugiStock};
 static Controller_name:&str = "tsumugi3dObject";
 
 #[derive(Clone)]
-struct ObjectKey(Arc<Mutex<Option<u64>>>);
+pub struct ObjectKey(Arc<Mutex<Option<u64>>>);
 #[derive( Clone)]
-struct TsumugiObjectController{object_hashmap:Arc<Mutex<HashMap<u64,Tsumugi3DObject>>>, object_key_origin:Arc<AtomicU64>}
+pub struct TsumugiObjectController{pub object_hashmap:Arc<Mutex<HashMap<u64,Tsumugi3DObject>>>, object_key_origin:Arc<AtomicU64>}
 struct TsumugiObjectConstructor();
 #[derive(Copy, Clone)]
 enum Tsumugi3DObjectAction{
@@ -22,12 +23,12 @@ enum Tsumugi3DObjectAction{
     Delete
 }
 #[derive(Copy, Clone)]
-struct Tsumugi3DObject{
+pub struct Tsumugi3DObject{
     position:nalgebra::Point3<f32>,
     rotate:nalgebra::Point2<f32>,
     size:nalgebra::Point3<f32>,
-    name:&'static str,
-    path:&'static Path
+    pub name:&'static str,
+    pub path:&'static Path
 }
 #[derive(Clone)]
 struct Tsumugi3DObjectParcel{
@@ -92,7 +93,7 @@ impl Tsumugi3DObject {
         let duplicate_key = tsumugi3dobject_parcel.object_key.clone();
         let p_dist = TsumugiParcelDistributor::new(tsumugi3dobject_parcel);
         tsumugiStock.store_object(tc);
-        tc.global_connect_tsumugi_controller.lock().unwrap().get(Controller_name).unwrap().local_channel_sender.pickup_channel_sender.send(p_dist.into());
+        tc.find(Controller_name).pickup_channel_sender.send(p_dist.into());
         duplicate_key
     }
     pub fn update3d_object(self,tc: &TsumugiController,object_key:ObjectKey)->bool{
@@ -103,7 +104,7 @@ impl Tsumugi3DObject {
                 tsumugi3dobject_action: Tsumugi3DObjectAction::Update
             };
             let p_dist = TsumugiParcelDistributor::new(tsumugi3dobject_parcel);
-            tc.global_connect_tsumugi_controller.lock().unwrap().get(Controller_name).unwrap().local_channel_sender.pickup_channel_sender.send(p_dist.into());
+            tc.find(Controller_name).pickup_channel_sender.send(p_dist.into());
             return true;
         }
         return false
@@ -119,6 +120,8 @@ impl TsumugiObject for TsumugiObjectController{
                 TsumugiControllerItemState::Fulfilled
             })).to_antenna();
         tc.tc.local_channel_sender.recept_channel_sender.send(recept_object.into());
+        let dist_object = TsumugiParcelDistributor::new(self.clone()).lifetime(Eternal);
+        tc.tc.local_channel_sender.pickup_channel_sender.send(dist_object.into());
     }
 }
 
@@ -135,7 +138,7 @@ mod tests {
 
     #[test]
     fn object_create() {
-
+        //todo!();
     }
 
 }

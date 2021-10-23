@@ -2,18 +2,18 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use gltf::{buffer, Document, image};
-use tsumugi::controller::{TsumugiController, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiController, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 
-type Import = (Document, Vec<buffer::Data>, Vec<image::Data>);
+pub type Import = (Document, Vec<buffer::Data>, Vec<image::Data>);
 
 struct tsumugiStock();
 
-static tsumugiStockCPUName: &str = "TsumugiStockCPU";
+static TSUMUGI_STOCK_CPUNAME: &str = "TsumugiStockCPU";
 
 #[derive(Clone)]
-struct TsumugiStockController(Arc<Mutex<HashMap<&'static Path, Arc<Import>>>>);
+pub struct TsumugiStockController(pub Arc<Mutex<HashMap<&'static Path, Arc<Import>>>>);
 
 #[derive(Clone, Copy)]
 pub struct TsumugiStock(pub &'static Path);
@@ -53,6 +53,8 @@ impl TsumugiObject for TsumugiStockController {
                 TsumugiControllerItemState::Fulfilled
             })).to_antenna();
         tc.tc.local_channel_sender.recept_channel_sender.send(recept_object.into());
+        let dist_stock = TsumugiParcelDistributor::new(self.clone()).lifetime(TsumugiControllerItemLifeTime::Eternal);
+        tc.tc.local_channel_sender.pickup_channel_sender.send(dist_stock.into());
     }
 }
 
@@ -60,13 +62,13 @@ impl TsumugiStock {
     pub fn store_object(&self, tc: &TsumugiController) {
         let tsumugi_path = self.clone();
         let path_dist = TsumugiParcelDistributor::new(tsumugi_path);
-        tc.global_connect_tsumugi_controller.lock().unwrap().get(tsumugiStockCPUName).unwrap().local_channel_sender.pickup_channel_sender.send(path_dist.into());
+        tc.find(TSUMUGI_STOCK_CPUNAME).pickup_channel_sender.send(path_dist.into());
     }
 }
 
 
 pub fn spown_object_stock_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
-    let mut newtc = tc.spown(tsumugiStockCPUName.to_string());
+    let mut newtc = tc.spown(TSUMUGI_STOCK_CPUNAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiStockController::default()),
     ]);
