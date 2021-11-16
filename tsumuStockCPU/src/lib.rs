@@ -6,7 +6,11 @@ use tsumugi::controller::{TsumugiController, TsumugiControllerItemLifeTime, Tsum
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 
-pub type Import = (Document, Vec<buffer::Data>, Vec<image::Data>);
+pub struct Import {
+    pub document: Document,
+    pub buffers: Vec<buffer::Data>,
+    images: Vec<image::Data>,
+}
 
 struct tsumugiStock();
 
@@ -21,11 +25,19 @@ pub struct TsumugiStock(pub &'static Path);
 impl TsumugiStockController {
     fn store(&self, path: TsumugiStock) {
         let import = gltf::import(path.0).unwrap_or_else(|x| { panic!("{}", x) });
-        self.0.lock().unwrap().insert(path.0, Arc::from(import));
+        self.0.lock().unwrap().insert(path.0, Arc::from(Import {
+            document: import.0,
+            buffers: import.1,
+            images: import.2,
+        }));
     }
     fn load_store_sync(&self, path: TsumugiStock) -> Arc<Import> {
         let import = gltf::import(path.0).unwrap_or_else(|x| { panic!("{}", x) });
-        let arc_import = Arc::new(import);
+        let arc_import = Arc::new(Import {
+            document: import.0,
+            buffers: import.1,
+            images: import.2,
+        });
         self.0.lock().unwrap().insert(path.0, arc_import.clone());
         arc_import
     }

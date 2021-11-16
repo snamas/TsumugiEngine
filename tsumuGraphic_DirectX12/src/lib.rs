@@ -4,6 +4,10 @@ mod tg_device;
 mod tg_command_queue;
 mod tg_graphics_command_list;
 mod tg_command_dispatcher;
+mod Draw;
+mod tg_dxgi_factory;
+mod tg_dxgi_swapchain;
+mod tg_descriptor_controller;
 
 use std::ops::DerefMut;
 use std::path::Path;
@@ -13,7 +17,10 @@ use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::Duration;
 use winapi::_core::ptr::null_mut;
+use winapi::Interface;
 use winapi::shared::minwindef::TRUE;
+use winapi::um::d3d12::D3D12GetDebugInterface;
+use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::wingdi::TextOutW;
 use winapi::um::winuser::{GetDC, InvalidateRect, ReleaseDC};
 use tsugumi_windows_library::wide_char;
@@ -23,6 +30,7 @@ use tsumugi::signal::TsumugiSignal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
 use tsumuObject::TsumugiObjectController;
 use tsumuStockCPU::TsumugiStockController;
+use crate::Draw::DrawWindow;
 
 static CONTROLLER_NAME: &str = "tsumuGraphicDx12";
 
@@ -81,10 +89,11 @@ fn CheckStoreList(arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread){
 }
 fn receptHWND(tc: &TsumugiController_thread) {
     let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
-        let thread_handle = arc_hwnd.parcel.clone().unwrap();
+        let thread_handleWindow = arc_hwnd.parcel.clone().unwrap();
         {
-            CheckObjectList(&thread_handle,&tct);
-            CheckStoreList(&thread_handle,&tct);
+            CheckObjectList(&thread_handleWindow, &tct);
+            CheckStoreList(&thread_handleWindow, &tct);
+            DrawWindow(&thread_handleWindow, &tct);
         }
         TsumugiControllerItemState::Fulfilled
     };

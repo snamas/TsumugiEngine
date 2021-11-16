@@ -12,3 +12,4 @@ tsumugi = {path = "../tsumugi" }
 tsumugiWindowController = {path = "../tsumugiWindowController" }
 tsumuStockCPU = {path = "../tsumuStockCPU" }
 tsumuObject = {path = "../tsumuObject" }
+nalgebra = "0.24.0"

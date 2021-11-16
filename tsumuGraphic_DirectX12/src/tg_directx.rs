@@ -3,23 +3,23 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ptr::null_mut;
 use winapi::ctypes::c_void;
-use winapi::shared::minwindef::UINT;
+use winapi::shared::minwindef::{DWORD, UINT};
 use winapi::shared::winerror::S_OK;
-use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_RANGE, ID3D12CommandAllocator, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
+use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_RANGE, D3D12_RESOURCE_ALIASING_BARRIER, D3D12_RESOURCE_BARRIER, D3D12_RESOURCE_BARRIER_FLAGS, D3D12_RESOURCE_BARRIER_TYPE_ALIASING, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION, D3D12_RESOURCE_BARRIER_TYPE_UAV, D3D12_RESOURCE_BARRIER_u, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RESOURCE_UAV_BARRIER, ID3D12CommandAllocator, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
 use winapi::um::d3dcommon::{D3D_SHADER_MACRO, ID3D10Blob, ID3DBlob, ID3DInclude};
 use winapi::um::d3dcompiler::D3DCompileFromFile;
+use winapi::um::handleapi::CloseHandle;
+use winapi::um::minwinbase::SECURITY_ATTRIBUTES;
+use winapi::um::synchapi::{CreateEventW, WaitForSingleObject};
 use winapi::um::winnt::{HRESULT, LPCWSTR, HANDLE, LPCSTR};
 use tsugumi_windows_library::{BoolInto, wide_char,HRESULTinto};
-use crate::tg_device::CpID3D12Device;
+use crate::tg_device::TgID3D12Device;
 
 pub struct CpID3D12Resource<T: 'static> {
     pub(crate) value: *mut ID3D12Resource,
+    ///BUFFER_VIEW構造体で要素のサイズを入れるのに必要
     pub(crate) size:u32,
     pub(crate) _phantom:PhantomData<T>
-}
-pub struct CpID3D12DescriptorHeap {
-    pub(crate) value: *const ID3D12DescriptorHeap,
-    pub(crate) desc: D3D12_DESCRIPTOR_HEAP_DESC,
 }
 pub struct CpID3D12CommandAllocator(pub(crate) *mut ID3D12CommandAllocator);
 pub struct CpID3D12Fence {
@@ -29,14 +29,11 @@ pub struct CpID3D12Fence {
 pub struct CpID3DBlob(pub *const ID3DBlob);
 pub struct CpID3D12RootSignature(pub *mut ID3D12RootSignature);
 pub struct CpID3D12PipelineState(pub *mut ID3D12PipelineState);
-
-pub struct CpD3D12_CPU_DESCRIPTOR_HANDLE {
-    pub(crate) value: D3D12_CPU_DESCRIPTOR_HANDLE,
-    DescriptorHeapType: D3D12_DESCRIPTOR_HEAP_TYPE,
-}
+pub struct CpD3D12_RESOURCE_BARRIER(pub *mut D3D12_RESOURCE_BARRIER);
+pub struct CpEventW(*mut c_void);
 
 impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
-    pub fn cp_map(&mut self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>) -> Result<Box<&'static mut T>, HRESULT> {
+    pub fn cp_map(&self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>) -> Result<&'static mut T, HRESULT> {
         let pReadRange: *const D3D12_RANGE = match pReadRangeOpt {
             Some(v) => { &v }
             None => { null_mut() }
@@ -47,7 +44,7 @@ impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
                 Ok(v) => match (_unknownobj as *mut T).as_mut() {
                     None => { Err(v) }
                     Some(_obj) => {
-                        Ok(Box::new(_obj))
+                        Ok(_obj)
                     }
                 }
                 Err(v) => Err(v)
@@ -62,6 +59,11 @@ impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
         unsafe {
             self.value.as_ref().unwrap().Unmap(subresource, pReadRange)
         }
+    }
+    pub fn cp_slice_map(&self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>, len: impl std::iter::ExactSizeIterator) -> Result<&'static mut [T], HRESULT> {
+        let _arr_obj = self.cp_map(subresource, pReadRangeOpt)?;
+        let _arr = unsafe { std::slice::from_raw_parts_mut(_arr_obj, len.len()) };
+        Ok(_arr)
     }
 }
 impl CpID3DBlob {
@@ -106,12 +108,93 @@ impl CpID3D12CommandAllocator {
     }
 }
 
-impl CpD3D12_CPU_DESCRIPTOR_HANDLE {
-    pub fn cp_descriptor_handle_increment_ptr(&self, cp_id3d12device: &CpID3D12Device, index: u32) -> CpD3D12_CPU_DESCRIPTOR_HANDLE {
-        let mut newHandle: CpD3D12_CPU_DESCRIPTOR_HANDLE = CpD3D12_CPU_DESCRIPTOR_HANDLE {
-            value: D3D12_CPU_DESCRIPTOR_HANDLE { ptr: self.value.ptr + (index * cp_id3d12device.cp_get_descriptor_handle_increment_size(self.DescriptorHeapType)) as usize },
-            DescriptorHeapType: self.DescriptorHeapType,
+pub enum CpD3d12ResourceBarrierDescType {
+    CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: D3D12_RESOURCE_TRANSITION_BARRIER, flags: D3D12_RESOURCE_BARRIER_FLAGS },
+    CpD3d12ResourceAliasingBarrier { d3d12_resource_aliasing_barrier: D3D12_RESOURCE_ALIASING_BARRIER, flags: D3D12_RESOURCE_BARRIER_FLAGS },
+    CpD3D12_RESOURCE_UAV_BARRIER { d3d12_resource_uav_barrier: D3D12_RESOURCE_UAV_BARRIER, flags: D3D12_RESOURCE_BARRIER_FLAGS },
+}
+impl CpD3D12_RESOURCE_BARRIER {
+    ///リソースバリアのタイプで返すD3D12_RESOURCE_BARRIER構造体の共用体部分を決める
+    pub fn new(desc_type: CpD3d12ResourceBarrierDescType) -> D3D12_RESOURCE_BARRIER {
+        match desc_type {
+            CpD3d12ResourceBarrierDescType::CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier, flags } => {
+                CpD3D12_RESOURCE_BARRIER::cp_transition(&d3d12_resource_transition_barrier, flags)
+            }
+            CpD3d12ResourceBarrierDescType::CpD3d12ResourceAliasingBarrier { d3d12_resource_aliasing_barrier, flags } => {
+                CpD3D12_RESOURCE_BARRIER::cp_aliasing(&d3d12_resource_aliasing_barrier, flags)
+            }
+            CpD3d12ResourceBarrierDescType::CpD3D12_RESOURCE_UAV_BARRIER { d3d12_resource_uav_barrier, flags } => {
+                CpD3D12_RESOURCE_BARRIER::cp_uav(&d3d12_resource_uav_barrier, flags)
+            }
+        }
+    }
+    pub fn cp_transition(d3d12_resource_transition_barrier: &D3D12_RESOURCE_TRANSITION_BARRIER, flags: D3D12_RESOURCE_BARRIER_FLAGS) -> D3D12_RESOURCE_BARRIER {
+        D3D12_RESOURCE_BARRIER
+        {
+            Type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            Flags: flags,
+            u: unsafe {
+                *std::mem::transmute::<&D3D12_RESOURCE_TRANSITION_BARRIER, &D3D12_RESOURCE_BARRIER_u>(d3d12_resource_transition_barrier)
+            },
+        }
+    }
+    pub fn cp_aliasing(d3d12_resource_aliasing_barrier: &D3D12_RESOURCE_ALIASING_BARRIER, flags: D3D12_RESOURCE_BARRIER_FLAGS) -> D3D12_RESOURCE_BARRIER {
+        D3D12_RESOURCE_BARRIER
+        {
+            Type: D3D12_RESOURCE_BARRIER_TYPE_ALIASING,
+            Flags: flags,
+            u: unsafe {
+                *std::mem::transmute::<&D3D12_RESOURCE_ALIASING_BARRIER, &D3D12_RESOURCE_BARRIER_u>(d3d12_resource_aliasing_barrier)
+            },
+        }
+    }
+    pub fn cp_uav(d3d12_resource_uav_barrier: &D3D12_RESOURCE_UAV_BARRIER, flags: D3D12_RESOURCE_BARRIER_FLAGS) -> D3D12_RESOURCE_BARRIER {
+        D3D12_RESOURCE_BARRIER
+        {
+            Type: D3D12_RESOURCE_BARRIER_TYPE_UAV,
+            Flags: flags,
+            u: unsafe {
+                *std::mem::transmute::<&D3D12_RESOURCE_UAV_BARRIER, &D3D12_RESOURCE_BARRIER_u>(d3d12_resource_uav_barrier)
+            },
+        }
+    }
+}
+
+impl CpID3D12Fence {
+    pub fn cp_get_completed_value(&self) -> u64 {
+        unsafe {
+            self.value.as_ref().unwrap().GetCompletedValue()
+        }
+    }
+    pub fn cp_is_reach_fance_value(&self) -> bool {
+        self.cp_get_completed_value() >= self.fenceval
+    }
+    pub fn cp_set_event_on_completion(&self, hEvent: &mut CpEventW) -> Result<HRESULT, HRESULT> {
+        unsafe {
+            self.value.as_ref().unwrap().SetEventOnCompletion(self.fenceval, hEvent.0).result()
+        }
+    }
+    pub fn cp_increment_counter(&mut self, incrementvalue: u64) {
+        self.fenceval = self.fenceval.wrapping_add(incrementvalue);
+    }
+}
+
+impl CpEventW{
+    pub fn cp_create_event_w(lpEventAttributes_opt: Option<&mut SECURITY_ATTRIBUTES>, bManualReset: bool, bInitialState: bool, lpName_opt: Option<&str>) -> Option<CpEventW> {
+        let lpEventAttributes: *mut SECURITY_ATTRIBUTES = match lpEventAttributes_opt {
+            Some(v) => { v }
+            None => { null_mut() }
         };
-        return newHandle;
+        let lpName = match lpName_opt {
+            Some(v) => { v.to_wide_chars().as_ptr() }
+            None => { null_mut() }
+        };
+        Some(CpEventW(unsafe { CreateEventW(lpEventAttributes, i32::from(bManualReset), i32::from(bInitialState), lpName).as_mut()? }))
+    }
+    pub fn cp_wait_for_single_object(&mut self, dwMilliseconds: DWORD) -> DWORD {
+        unsafe { WaitForSingleObject(self.0, dwMilliseconds) }
+    }
+    pub fn cp_CloseHandlet(&mut self) -> bool {
+        unsafe { CloseHandle(self.0).intobool() }
     }
 }
