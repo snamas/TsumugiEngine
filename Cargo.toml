@@ -2,7 +2,7 @@
 name = "tsumugiEngine"
 version = "0.1.0"
 authors = ["Snamas <43674314+KominamiYuto@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
@@ -16,7 +16,8 @@ members = [
     "tsumugiWinRT",
     "tsumuGraphic_DirectX12",
     "tsumuStockCPU",
-    "tsumuObject"
+    "tsumuObject",
+    "tsumuDebugwin"
 ]
 [dependencies]
 tsumugi_macro = {path = "tsumugi_macro" }
@@ -28,3 +29,5 @@ tsumugiWinRT = {path = "tsumugiWinRT" }
 tsumuGraphic_DirectX12 = {path = "tsumuGraphic_DirectX12" }
 tsumuStockCPU = {path = "tsumuStockCPU" }
 tsumuObject = {path = "tsumuObject" }
+tsumuDebugwin  = {path = "tsumuDebugwin" }
+gltf = { version ="0.16", features = ["import"]}

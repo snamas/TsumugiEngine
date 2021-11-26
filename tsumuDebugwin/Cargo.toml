@@ -1,0 +1,29 @@
+[package]
+name = "tsumuDebugwin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+imgui = { git = "https://github.com/imgui-rs/imgui-rs"}
+imgui-sdl2-support = { git = "https://github.com/imgui-rs/imgui-rs"}
+tsumugi = {path = "../tsumugi" }
+gl = "0.14.0"
+imgui-glow-renderer = { git = "https://github.com/imgui-rs/imgui-rs"}
+glow = "0.10.0"
+tsumuStockCPU = {path = "../tsumuStockCPU" }
+tsumuObject = {path = "../tsumuObject" }
+
+[dependencies.sdl2]
+version = "0.34.5"
+default-features = false
+features = ["ttf","image","gfx","mixer","static-link","use-vcpkg"]
+
+[package.metadata.vcpkg]
+dependencies = ["sdl2", "sdl2-image[libjpeg-turbo,tiff,libwebp]", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
+git = "https://github.com/microsoft/vcpkg"
+rev = "653912591af709c162fba2d4000a6b3362c8d3c9"
+
+[package.metadata.vcpkg.target]
+x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }

@@ -3,7 +3,7 @@ use crate::controller::{TsumugiControllerApplication, TsumugiControllerItemLifeT
 use crate::signal::TsumugiSignal;
 
 pub enum TsumugiDistributor {
-    TsumugiParcelDistributor(TsumugiParcelDistributor),
+    TPDistributor(TsumugiParcelDistributor),
     TsumugiSignal(TsumugiSignal),
 }
 
@@ -12,6 +12,7 @@ pub struct TsumugiParcelDistributor {
     pub parceltype: TypeId,
     pub parcellifetime: TsumugiControllerItemLifeTime,
     pub parcel_name: Option<String>,
+    pub distributor_name: Option<String>,
     pub parcel_application: TsumugiControllerApplication,
     pub current_state: TsumugiControllerItemState,
 }
@@ -23,12 +24,17 @@ impl TsumugiParcelDistributor {
             parceltype: TypeId::of::<T>(),
             parcellifetime: TsumugiControllerItemLifeTime::Once,
             parcel_name: None,
+            distributor_name: None,
             parcel_application: TsumugiControllerApplication::New,
             current_state: TsumugiControllerItemState::Untreated,
         }
     }
-    pub fn name(mut self, name: impl ToString) -> Self {
+    pub fn parcelname(mut self, name: impl ToString) -> Self {
         self.parcel_name = Some(name.to_string());
+        self
+    }
+    pub fn displayname(mut self, name: impl ToString) -> Self {
+        self.distributor_name = Some(name.to_string());
         self
     }
     pub fn lifetime(mut self, lifetime: TsumugiControllerItemLifeTime) -> Self {
@@ -44,9 +50,9 @@ impl TsumugiParcelDistributor {
 impl TsumugiDistributor {
     pub fn name(mut self, name: impl ToString) -> Self {
         match self {
-            TsumugiDistributor::TsumugiParcelDistributor(mut val) => {
+            TsumugiDistributor::TPDistributor(mut val) => {
                 val.parcel_name = Some(name.to_string());
-                TsumugiDistributor::TsumugiParcelDistributor(val)
+                TsumugiDistributor::TPDistributor(val)
             }
             TsumugiDistributor::TsumugiSignal(mut val) => {
                 val.signal_name = name.to_string();
@@ -56,9 +62,9 @@ impl TsumugiDistributor {
     }
     pub fn lifetime(mut self, lifetime: TsumugiControllerItemLifeTime) -> Self {
         match self {
-            TsumugiDistributor::TsumugiParcelDistributor(mut val) => {
+            TsumugiDistributor::TPDistributor(mut val) => {
                 val.parcellifetime = lifetime;
-                TsumugiDistributor::TsumugiParcelDistributor(val)
+                TsumugiDistributor::TPDistributor(val)
             }
             TsumugiDistributor::TsumugiSignal(mut val) => {
                 val.signallifetime = lifetime;
@@ -70,7 +76,7 @@ impl TsumugiDistributor {
 
 impl From<TsumugiParcelDistributor> for TsumugiDistributor {
     fn from(val: TsumugiParcelDistributor) -> Self {
-        TsumugiDistributor::TsumugiParcelDistributor(val)
+        TsumugiDistributor::TPDistributor(val)
     }
 }
 

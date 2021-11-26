@@ -5,7 +5,7 @@ use std::ptr::null_mut;
 use winapi::ctypes::c_void;
 use winapi::shared::minwindef::{DWORD, UINT};
 use winapi::shared::winerror::S_OK;
-use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_RANGE, D3D12_RESOURCE_ALIASING_BARRIER, D3D12_RESOURCE_BARRIER, D3D12_RESOURCE_BARRIER_FLAGS, D3D12_RESOURCE_BARRIER_TYPE_ALIASING, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION, D3D12_RESOURCE_BARRIER_TYPE_UAV, D3D12_RESOURCE_BARRIER_u, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RESOURCE_UAV_BARRIER, ID3D12CommandAllocator, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
+use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_GPU_VIRTUAL_ADDRESS, D3D12_RANGE, D3D12_RESOURCE_ALIASING_BARRIER, D3D12_RESOURCE_BARRIER, D3D12_RESOURCE_BARRIER_FLAGS, D3D12_RESOURCE_BARRIER_TYPE_ALIASING, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION, D3D12_RESOURCE_BARRIER_TYPE_UAV, D3D12_RESOURCE_BARRIER_u, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RESOURCE_UAV_BARRIER, ID3D12CommandAllocator, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
 use winapi::um::d3dcommon::{D3D_SHADER_MACRO, ID3D10Blob, ID3DBlob, ID3DInclude};
 use winapi::um::d3dcompiler::D3DCompileFromFile;
 use winapi::um::handleapi::CloseHandle;
@@ -18,7 +18,7 @@ use crate::tg_device::TgID3D12Device;
 pub struct CpID3D12Resource<T: 'static> {
     pub(crate) value: *mut ID3D12Resource,
     ///BUFFER_VIEW構造体で要素のサイズを入れるのに必要
-    pub(crate) size:u32,
+    pub(crate) size:u64,
     pub(crate) _phantom:PhantomData<T>
 }
 pub struct CpID3D12CommandAllocator(pub(crate) *mut ID3D12CommandAllocator);
@@ -64,6 +64,9 @@ impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
         let _arr_obj = self.cp_map(subresource, pReadRangeOpt)?;
         let _arr = unsafe { std::slice::from_raw_parts_mut(_arr_obj, len.len()) };
         Ok(_arr)
+    }
+    pub fn tg_get_GPU_Virtal_Address(&self)->D3D12_GPU_VIRTUAL_ADDRESS{
+        unsafe {self.value.as_ref().unwrap().GetGPUVirtualAddress()}
     }
 }
 impl CpID3DBlob {

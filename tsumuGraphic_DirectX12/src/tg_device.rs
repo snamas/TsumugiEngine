@@ -16,6 +16,7 @@ use crate::tg_command_queue::CpID3D12CommandQueue;
 use crate::tg_descriptor_controller::{TgD3d12CPUDescriptorHandle, TgD3d12GPUDescriptorHandle, TgDescriptorController, TgDescriptorHandle, TgID3D12DescriptorHeap};
 use crate::tg_directx::{CpID3D12CommandAllocator,  CpID3D12Fence, CpID3D12PipelineState, CpID3D12Resource, CpID3D12RootSignature, CpID3DBlob};
 use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
+use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
 
 pub struct TgID3D12Device(pub *const ID3D12Device);
 impl TgID3D12Device {
@@ -196,7 +197,7 @@ impl TgID3D12Device {
             }
         }
     }
-    pub fn cp_create_committed_resource<T>(&self, pHeapProperties: &D3D12_HEAP_PROPERTIES, HeapFlags: D3D12_HEAP_FLAGS, pResourceDesc: &D3D12_RESOURCE_DESC, InitialResourceState: D3D12_RESOURCE_STATES, pOptimizedClearValueOpt: &Option<D3D12_CLEAR_VALUE>, data: &T) -> Result<CpID3D12Resource<T>, HRESULT> {
+    pub fn cp_create_committed_resource<T>(&self, pHeapProperties: &D3D12_HEAP_PROPERTIES, HeapFlags: D3D12_HEAP_FLAGS, pResourceDesc: &D3D12_RESOURCE_DESC, InitialResourceState: D3D12_RESOURCE_STATES, pOptimizedClearValueOpt: &Option<D3D12_CLEAR_VALUE>, size: u64) -> Result<CpID3D12Resource<T>, HRESULT> {
         let pOptimizedClearValue: *const D3D12_CLEAR_VALUE = match pOptimizedClearValueOpt {
             Some(v) => { v }
             None => { null_mut() }
@@ -207,7 +208,7 @@ impl TgID3D12Device {
                 Ok(v) => {
                     match (_unknownobj as *mut ID3D12Resource).as_mut() {
                         Some(_id3d12_resorce) => {
-                            return Ok(CpID3D12Resource { value: _id3d12_resorce, size: std::mem::size_of_val(data) as u32, _phantom: Default::default() });
+                            return Ok(CpID3D12Resource { value: _id3d12_resorce, size: size, _phantom: Default::default() });
                         }
 
                         None => { return Err(v); }
@@ -217,62 +218,66 @@ impl TgID3D12Device {
             }
         }
     }
-    // pub fn cp_create_buffer_resource<T>(&self, nodemask: u32, vertices: &Vec<T>) -> Result<CpID3D12Resource<Vec<T>>, HRESULT> {
-    //     let heapProperties = D3D12_HEAP_PROPERTIES {
-    //         Type: D3D12_HEAP_TYPE_UPLOAD,
-    //         CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-    //         MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
-    //         CreationNodeMask: nodemask,
-    //         VisibleNodeMask: nodemask,
-    //     };
-    //     let resourceDesc = D3D12_RESOURCE_DESC {
-    //         Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
-    //         Alignment: 0,
-    //         Width: std::mem::size_of_val(vertices.as_ref()) as u64,
-    //         Height: 1,
-    //         DepthOrArraySize: 1,
-    //         MipLevels: 1,
-    //         Format: DXGI_FORMAT_UNKNOWN,
-    //         SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-    //         Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-    //         Flags: D3D12_RESOURCE_FLAG_NONE,
-    //     };
-    //     let vertexRes = self.cp_create_committed_resource(
-    //         &heapProperties,
-    //         D3D12_HEAP_FLAG_NONE,
-    //         &resourceDesc,
-    //         D3D12_RESOURCE_STATE_GENERIC_READ,
-    //         &None, vertices)?;
-    //     Ok(vertexRes)
-    // }
-    // pub fn cp_create_index_resource(&self, nodemask: u32, indices: &Vec<u32>) -> Result<CpID3D12Resource<Vec<u32>>, HRESULT> {
-    //     let heapProperties = D3D12_HEAP_PROPERTIES {
-    //         Type: D3D12_HEAP_TYPE_UPLOAD,
-    //         CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-    //         MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
-    //         CreationNodeMask: nodemask,
-    //         VisibleNodeMask: nodemask,
-    //     };
-    //     let resourceDesc = D3D12_RESOURCE_DESC {
-    //         Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
-    //         Alignment: 0,
-    //         Width: std::mem::size_of_val(indices.as_ref()) as u64,
-    //         Height: 1,
-    //         DepthOrArraySize: 1,
-    //         MipLevels: 1,
-    //         Format: DXGI_FORMAT_UNKNOWN,
-    //         SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-    //         Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-    //         Flags: D3D12_RESOURCE_FLAG_NONE,
-    //     };
-    //     let indexRes = self.cp_create_committed_resource(
-    //         &heapProperties,
-    //         D3D12_HEAP_FLAG_NONE,
-    //         &resourceDesc,
-    //         D3D12_RESOURCE_STATE_GENERIC_READ,
-    //         &None, indices)?;
-    //     Ok(indexRes)
-    // }
+    pub fn cp_create_buffer_resource(&self, nodemask: u32, vertices: &mut Vec<u8>) -> Result<CpID3D12Resource<Vec<u8>>, HRESULT> {
+        vertices.shrink_to_fit();
+        let size:u64 = (vertices.len() * std::mem::size_of::<u8>()) as u64;
+        let heapProperties = D3D12_HEAP_PROPERTIES {
+            Type: D3D12_HEAP_TYPE_UPLOAD,
+            CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+            MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
+            CreationNodeMask: nodemask,
+            VisibleNodeMask: nodemask,
+        };
+        let resourceDesc = D3D12_RESOURCE_DESC {
+            Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+            Alignment: 0,
+            Width: size,
+            Height: 1,
+            DepthOrArraySize: 1,
+            MipLevels: 1,
+            Format: DXGI_FORMAT_UNKNOWN,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+            Flags: D3D12_RESOURCE_FLAG_NONE,
+        };
+        let vertexRes = self.cp_create_committed_resource(
+            &heapProperties,
+            D3D12_HEAP_FLAG_NONE,
+            &resourceDesc,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            &None, size)?;
+        Ok(vertexRes)
+    }
+    pub fn cp_create_index_resource(&self, nodemask: u32, indices: &mut Vec<u32>) -> Result<CpID3D12Resource<Vec<u32>>, HRESULT> {
+        indices.shrink_to_fit();
+        let size:u64 = (indices.len() * std::mem::size_of::<u32>()) as u64;
+        let heapProperties = D3D12_HEAP_PROPERTIES {
+            Type: D3D12_HEAP_TYPE_UPLOAD,
+            CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+            MemoryPoolPreference: D3D12_MEMORY_POOL_UNKNOWN,
+            CreationNodeMask: nodemask,
+            VisibleNodeMask: nodemask,
+        };
+        let resourceDesc = D3D12_RESOURCE_DESC {
+            Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+            Alignment: 0,
+            Width: size,
+            Height: 1,
+            DepthOrArraySize: 1,
+            MipLevels: 1,
+            Format: DXGI_FORMAT_UNKNOWN,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+            Flags: D3D12_RESOURCE_FLAG_NONE,
+        };
+        let indexRes = self.cp_create_committed_resource(
+            &heapProperties,
+            D3D12_HEAP_FLAG_NONE,
+            &resourceDesc,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            &None, size)?;
+        Ok(indexRes)
+    }
     pub fn cp_create_root_signature(&self, nodeMask: u32, cpid3dblob: &mut CpID3DBlob) -> Result<CpID3D12RootSignature, HRESULT> {
         unsafe {
             let mut _unknownobj = null_mut();
@@ -290,10 +295,11 @@ impl TgID3D12Device {
             }
         }
     }
-    pub fn cp_create_graphics_pipeline_state(&self, d3d12_graphics_pipeline_state_desc: &D3D12_GRAPHICS_PIPELINE_STATE_DESC) -> Result<CpID3D12PipelineState, HRESULT> {
+    pub fn cp_create_graphics_pipeline_state(&self, d3d12_graphics_pipeline_state_desc: &mut TgD3d12GraphicsPipeline, tg_rootsig_checker:&CpID3D12RootSignature) -> Result<CpID3D12PipelineState, HRESULT> {
+        d3d12_graphics_pipeline_state_desc.0.pRootSignature = tg_rootsig_checker.0;
         unsafe {
             let mut _unknownobj = null_mut();
-            match self.0.as_ref().unwrap().CreateGraphicsPipelineState(d3d12_graphics_pipeline_state_desc, &ID3D12PipelineState::uuidof(), &mut _unknownobj).result() {
+            match self.0.as_ref().unwrap().CreateGraphicsPipelineState(&d3d12_graphics_pipeline_state_desc.0, &ID3D12PipelineState::uuidof(), &mut _unknownobj).result() {
                 Ok(v) => {
                     match (_unknownobj as *mut ID3D12PipelineState).as_mut() {
                         Some(_ID3D12PipelineState) => {

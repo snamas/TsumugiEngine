@@ -8,6 +8,7 @@ mod Draw;
 mod tg_dxgi_factory;
 mod tg_dxgi_swapchain;
 mod tg_descriptor_controller;
+mod tg_graphics_pipeline;
 
 use std::ops::DerefMut;
 use std::path::Path;
@@ -36,36 +37,10 @@ static CONTROLLER_NAME: &str = "tsumuGraphicDx12";
 
 struct TsumuGraphicObject();
 struct TsumuGPUStore();
-
-fn CheckObjectList(arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread){
-    let thread_handle = arc_hwnd.clone();
-    let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiObjectController>::new().subscribe(Arc::new(move |parcel|{
-        let recept = parcel.parcel.as_ref().unwrap().object_hashmap.clone();
-        let thread_handle = thread_handle.clone();
-        thread::spawn(move ||{
-            loop {
-                sleep(Duration::new(0, 1));
-                let mut itemcount = 0;
-                for item in recept.lock().unwrap().iter(){
-                    unsafe {
-                        let hdc = GetDC((*thread_handle.0.lock().unwrap()).0.deref_mut());
-                        InvalidateRect((*thread_handle.0.lock().unwrap()).0.deref_mut(), null_mut(), TRUE);
-                        let text = format!("object = {}", item.1.name);
-                        TextOutW(hdc, 10, 40 + itemcount, text.to_wide_chars().as_ptr(), text.len() as i32);
-                        ReleaseDC((*thread_handle.0.lock().unwrap()).0.deref_mut(), hdc);
-                    }
-                    itemcount += 20;
-                }
-            }
-        });
-        TsumugiControllerItemState::Fulfilled
-    })).to_antenna().lifetime(TsumugiControllerItemLifeTime::Once);
-    tc.tc.find("tsumugi3dObject").recept_channel_sender.send(Object_antenna.into());
-}
 fn CheckStoreList(arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread){
     let thread_handle = arc_hwnd.clone();
     let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiStockController>::new().subscribe(Arc::new(move |parcel|{
-        let recept = parcel.parcel.as_ref().unwrap().clone();
+        let recept = parcel.parcel.clone().unwrap();
         let thread_handle = thread_handle.clone();
         thread::spawn(move||{
             loop {
@@ -85,20 +60,19 @@ fn CheckStoreList(arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread){
         });
         TsumugiControllerItemState::Fulfilled
     })).to_antenna().lifetime(TsumugiControllerItemLifeTime::Once);
-    tc.tc.find("TsumugiStockCPU").recept_channel_sender.send(Object_antenna.into());
+    tc.tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(Object_antenna.into());
 }
 fn receptHWND(tc: &TsumugiController_thread) {
     let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
         let thread_handleWindow = arc_hwnd.parcel.clone().unwrap();
         {
-            CheckObjectList(&thread_handleWindow, &tct);
             CheckStoreList(&thread_handleWindow, &tct);
             DrawWindow(&thread_handleWindow, &tct);
         }
         TsumugiControllerItemState::Fulfilled
     };
     let hwnd_dist = TsumugiParcelReceptorNoVal::<ArcHWND>::new().subscribe_tc(Arc::new(func)).to_antenna().lifetime(TsumugiControllerItemLifeTime::Once);
-    tc.tc.find("tsumugiWindowHandle").recept_channel_sender.send(hwnd_dist.into());
+    tc.tc.find("tsumugiWindowHandle").unwrap().recept_channel_sender.send(hwnd_dist.into());
 }
 
 impl TsumugiObject for TsumuGraphicObject{

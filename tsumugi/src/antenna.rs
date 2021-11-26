@@ -10,7 +10,9 @@ pub struct TsumugiAntenna {
     pub parcel: Box<dyn TsumugiParcelInput + Send>,
     pub parceltype: TypeId,
     pub antennalifetime: TsumugiControllerItemLifeTime,
+    ///受け取るTsumugiDistributorのparcel_nameと同じにしておく
     pub parcel_name: Option<String>,
+    ///アンテナの名前を入れる。何も影響しないがデバッグがしやすくなる。
     pub antenna_name: Option<String>,
     pub current_state: TsumugiControllerItemState,
     pub antenna_application: TsumugiControllerApplication,
@@ -33,7 +35,11 @@ impl TsumugiAntenna {
         self.antennalifetime = lifetime;
         self
     }
-    pub fn name(mut self, name: impl ToString) -> Self {
+    pub fn parcelname(mut self, name: impl ToString) -> Self {
+        self.parcel_name = Some(name.to_string());
+        self
+    }
+    pub fn displayname(mut self, name: impl ToString) -> Self {
         self.antenna_name = Some(name.to_string());
         self
     }

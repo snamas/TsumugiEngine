@@ -36,6 +36,46 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_json-7066e14a81c4e61c/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/typenum-37cfc24681465cdd/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumuObject/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/bindings-4205437b4128743a/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/crc32fast-843d4340bbf661c4/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/generic-array-2a8b1f88f2188329/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/getrandom-52bfea2ddf1ee7c5/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/libm-2b7793a8285cde77/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-integer-bfc0147ea0b893be/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-iter-aed98150dfd87a78/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-rational-4d54610bfc96a4e3/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-traits-f904fe73f130433e/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/proc-macro2-d8bc4d4337d22bd3/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/ryu-ec69d4926b4a33ee/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde-edb8fc94a7d8957a/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_derive-b14cae37eb464a42/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_json-9c15dfd793924e4f/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/syn-d69ae90e89b4809d/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/typenum-3d6bd2adbe49aa2e/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-932fe35a86d9389d/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/imgui-sys-9d1154f2fbb63be0/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/parking_lot_core-a7a8311cb595cbf4/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-5646b8e6d089668d/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumuDebugwin/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/libc-0f2dde8cf6f1d2ea/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/num-integer-e5c6c8043229f666/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/rand-bcdd569977c3cbd9/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/rand_chacha-42ed608141c793e0/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/rand_pcg-038d36b6ecf07507/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-6f5487650dfe646a/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-e96bd8d7c0a4f47f/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-sys-28b99690d27bbab9/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-sys-fd1035977be23ddb/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-a7a66cebfef3ccf3/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/gl-b631f845331a5c96/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/imgui-sys-144cf62ba4147a9b/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/khronos_api-c98cb510f7ba5d91/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/log-c33ce40eba82dd70/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/memoffset-09bf23e34be69a72/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-64beadbc0fb0569b/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-a45bd37ba30ed9ec/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-sys-6a3bb78982cfcc7e/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-sys-be10c04529e99596/out" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
