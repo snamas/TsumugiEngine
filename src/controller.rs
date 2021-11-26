@@ -136,7 +136,7 @@ pub trait TsumugiControllerTrait {
     fn spown(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiController>;
     fn set_object(&mut self, tsumugi_object:Box<dyn TsumugiObject + Send>);
     fn set_objects(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
-    fn find(&self, Controller_name: &str) -> TsumugiChannelSenders;
+    fn find(&self, Controller_name: &str) -> Option<TsumugiChannelSenders>;
     fn execute_tsumugi_functions(self: &Box<Self>, tsumugi_functions: Vec<fn(&Box<TsumugiController>) -> Box<TsumugiController>>);
     fn execute_tsumugi_thread(&self, thread_receivers: Thread_receivers) -> JoinHandle<()>;
 }
@@ -197,8 +197,8 @@ impl TsumugiControllerTrait for TsumugiController {
             self.tsumugi_object_sender.send(tsumugi_object);
         }
     }
-    fn find(&self, Controller_name: &str) -> TsumugiChannelSenders {
-        self.global_connect_tsumugi_controller.lock().unwrap().get(Controller_name).unwrap_or_else(||{panic!("{}は存在しないよ",Controller_name)}).local_channel_sender.clone()
+    fn find(&self, Controller_name: &str) -> Option<TsumugiChannelSenders> {
+        Some(self.global_connect_tsumugi_controller.lock().unwrap().get(Controller_name)?.local_channel_sender.clone())
     }
     /// TsumugiController生成関数の配列を受け取って,それを使ってTsumugiControllerを生成していくよ
     fn execute_tsumugi_functions(self: &Box<Self>, create_tsumugi_controller_funclist: Vec<fn(&Box<TsumugiController>) -> Box<TsumugiController>>) {
@@ -209,6 +209,7 @@ impl TsumugiControllerTrait for TsumugiController {
     }
     fn execute_tsumugi_thread(&self, thread_receivers: Thread_receivers) -> JoinHandle<()> {
         let mut tc_thread = TsumugiController_thread { tc: self.clone(), tsumugi_object_vector: vec![] };
+        let plane_name = self.tsumugi_controller_name.clone();
         thread::spawn(move || {
             //todo:うまいことロックを使いこなそうcondvarというやつをつかって
             //todo:あとhashを値の管理に使う。
@@ -232,6 +233,10 @@ impl TsumugiControllerTrait for TsumugiController {
                 //todo:とりあえず１msごとに更新する
                 sleep(Duration::new(0, 1));
                 tc_thread.thread_loop_antenna_parcel(&mut controll_loop_kit);
+                if let Some(debug_plane) = tc_thread.tc.find("TsumugiDebugWin"){
+                    let debugkit = controll_loop_kit.debug(plane_name.clone());
+                    debug_plane.pickup_channel_sender.send(TsumugiParcelDistributor::new(debugkit).lifetime(Once).displayname(plane_name.clone()).into());
+                }
             }
         }
         )
@@ -254,7 +259,7 @@ impl TsumugiController_thread {
         let mut receipt_iter = controll_loop_kit.thread_receivers.antenna.try_iter();
         for pickup_item in pickup_iter {
             match pickup_item {
-                TsumugiDistributor::TsumugiParcelDistributor(parcel) => { self.parcel_action(parcel, &mut controll_loop_kit.depot_hashmap_typeof); }
+                TsumugiDistributor::TPDistributor(parcel) => { self.parcel_action(parcel, &mut controll_loop_kit.depot_hashmap_typeof); }
                 TsumugiDistributor::TsumugiSignal(signal) => {
                     let mut hashlist = controll_loop_kit.depot_hashmap_typeof.signal_hashmap.entry(signal.signal_name.clone()).or_insert(TsumugiSignalHashList { pickup_list: vec![], recept_list: vec![] });
                     hashlist.pickup_list.push(signal);
@@ -656,7 +661,81 @@ impl TsumugiController_thread {
         }
     }
 }
+#[derive(Clone)]
+pub struct Debugpair{
+    pub pickup_list: Vec<(TypeId,String)>,
+    pub recept_list: Vec<(TypeId,String)>,
+}
+#[derive(Clone)]
+pub struct named_Debugpair {
+    pub pickup_list: Vec<(TypeId,String,String)>,
+    pub recept_list: Vec<(TypeId,String,String)>,
+}
+#[derive(Clone)]
+pub struct signal_Debugpair {
+    pub pickup_list: Vec<(String,String)>,
+    pub recept_list: Vec<(String,String)>,
+}
+#[derive(Clone)]
+pub struct antennachain_Debugpair {
+    pub list: Vec<String>,
+}
+#[derive(Clone)]
+pub struct DebugKit{
+    pub plane_name:String,
+    pub parcel:Debugpair,
+    pub named_parcel: named_Debugpair,
+    pub signal:signal_Debugpair,
+    pub antennachain:antennachain_Debugpair
+}
+impl ControllLoopKitStruct {
+    fn debug(&self,plane_name:String)->DebugKit{
+        let parcel:(Vec<_>,Vec<_>) = self.depot_hashmap_typeof.antenna_hashmap.iter().map(|v|{
+            let pickup = v.1.pickup_list.iter().map(|w|{
+                (v.0.clone(),w.distributor_name.clone().unwrap_or("No Name".to_string()))
+            }).collect::<Vec<_>>();
+            let recept = v.1.recept_list.iter().map(|w|{
+                (v.0.clone(),w.antenna_name.clone().unwrap_or("No Name".to_string()))
+            }).collect::<Vec<_>>();
+            (pickup,recept)
+        }).unzip();
+        let named_parcel:(Vec<_>,Vec<_>) = self.depot_hashmap_typeof.antenna_hashmap.iter().map(|v|{
+            let pickup = v.1.pickup_list_withid.iter().map(|w|{
+                w.1.iter().map(|x|{
+                    (v.0.clone(),w.0.clone(),x.distributor_name.clone().unwrap_or("No Name".to_string()))
+                }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>();
+            let recept = v.1.recept_list_withid.iter().map(|w|{
+                w.1.iter().map(|x|{
+                    (v.0.clone(),w.0.clone(),x.antenna_name.clone().unwrap_or("No Name".to_string()))
+                }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>();
+            (pickup,recept)
+        }).unzip();
+        let signal:(Vec<_>,Vec<_>) = self.depot_hashmap_typeof.signal_hashmap.iter().map(|v|{
+            let pickup = v.1.pickup_list.iter().map(|w|{
+                (v.0.clone(),w.signal_name.clone())
+            }).collect::<Vec<_>>();
+            let recept = v.1.recept_list.iter().map(|w|{
+                (v.0.clone(),w.signal_name.clone())
+            }).collect::<Vec<_>>();
+            (pickup,recept)
+        }).unzip();
+        let antenna_chain = self.antennachain_hashmap.receipt_list.iter().map(|v|{
+            v.chain_name.clone().unwrap_or("No Name".to_string())
+        }).collect::<Vec<_>>();
+        DebugKit{
+            plane_name,
+            parcel: Debugpair { pickup_list: parcel.0.into_iter().flatten().collect::<Vec<_>>(), recept_list: parcel.1.into_iter().flatten().collect::<Vec<_>>() },
+            named_parcel: named_Debugpair { pickup_list: named_parcel.0.into_iter().flatten().flatten().collect::<Vec<_>>(), recept_list: named_parcel.1.into_iter().flatten().flatten().collect::<Vec<_>>() },
+            signal: signal_Debugpair { pickup_list: signal.0.into_iter().flatten().collect::<Vec<_>>(), recept_list: signal.1.into_iter().flatten().collect::<Vec<_>>() },
+            antennachain: antennachain_Debugpair { list: antenna_chain }
+        }
 
+
+
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::any::{Any, TypeId};
@@ -716,7 +795,6 @@ mod tests {
     impl TsumugiController_thread {
         pub(crate) fn new(tcs: TsumugiChannelSenders) -> Self {
             let (object_sender, object_receiver) = mpsc::channel();
-
             TsumugiController_thread {
                 tc: TsumugiController {
                     local_channel_sender: tcs.clone(),
@@ -985,7 +1063,7 @@ mod tests {
         }
         {
             //parcel("pr")を送る（Once）
-            let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr { package: "NamedParcelIsReceived".to_string() }).name("pr");
+            let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr { package: "NamedParcelIsReceived".to_string() }).parcelname("pr");
             tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
