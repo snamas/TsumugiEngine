@@ -20,6 +20,7 @@ impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptorNoVal<T> {
 }
 
 impl<T: 'static + Send + Clone> TsumugiParcelReceptorNoVal<T> {
+    ///TsumugiParcelReceptorNoVal::<T>::new()のようにして呼び出すよ。初期値が設定されていない時用のReceptor
     pub fn new() -> TsumugiParcelReceptorNoVal<T> {
         TsumugiParcelReceptorNoVal { parcel: None, subscribe: None }
     }
