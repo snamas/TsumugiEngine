@@ -28,11 +28,13 @@ impl ObjectLoader for SampleBox {
                         binary.append(&mut bin.to_vec());
                         binary.append(&mut (unsafe{std::mem::transmute::<_,[u8;12]>(vertexes_normal.next()?)}).to_vec());
                     }
+                    binary.shrink_to_fit();
                     binarylist.push(binary);
                 }
                 {
-                    let mut vertexes_id = reader.read_indices()?.into_u32().collect::<Vec<u32>>();
-                    indexlist.push(vertexes_id);
+                    let mut index_binary = reader.read_indices()?.into_u32().collect::<Vec<u32>>();
+                    index_binary.shrink_to_fit();
+                    indexlist.push(index_binary);
                 }
                 {
                     let attribute = vec![

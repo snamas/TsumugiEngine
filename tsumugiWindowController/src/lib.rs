@@ -33,30 +33,6 @@ struct TsumugiWindowObject();
 
 static COUNT: AtomicU64 = AtomicU64::new(0);
 
-fn receptHWND(tc: &TsumugiController_thread) {
-    let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
-        let thread_handle = arc_hwnd.parcel.clone().unwrap();
-        {
-            let hwnd_dist = TsumugiSignal::new("w").subscribe(Arc::new(move || {
-                unsafe {
-                    let hdc = GetDC((*thread_handle.0.lock().unwrap()).0.deref_mut());
-                    InvalidateRect((*thread_handle.0.lock().unwrap()).0.deref_mut(), null_mut(), TRUE);
-                    let text = format!("Count = {}", COUNT.load(Ordering::SeqCst));
-                    TextOutW(hdc, 10, 10, text.to_wide_chars().as_ptr(), text.len() as i32);
-
-                    ReleaseDC((*thread_handle.0.lock().unwrap()).0.deref_mut(), hdc);
-                    COUNT.fetch_add(1, Ordering::SeqCst);
-                }
-                TsumugiControllerItemState::Fulfilled
-            })).lifetime(TsumugiControllerItemLifeTime::Eternal);
-            tct.tc.global_channel_sender.recept_channel_sender.send(hwnd_dist.into());
-        }
-        TsumugiControllerItemState::Fulfilled
-    };
-    let hwnd_dist = TsumugiParcelReceptorNoVal::<ArcHWND>::new().subscribe_tc(Arc::new(func)).to_antenna().lifetime(TsumugiControllerItemLifeTime::Once);
-    tc.tc.local_channel_sender.recept_channel_sender.send(hwnd_dist.into());
-}
-
 impl TsumugiObject for TsumugiWindowObject {
     fn on_create(&self, tc: &TsumugiController_thread) {
         let mut globalsender = tc.tc.global_channel_sender.pickup_channel_sender.clone();
@@ -86,7 +62,6 @@ impl TsumugiObject for TsumugiWindowObject {
                 }
             }
         });
-        receptHWND(tc);
     }
 }
 

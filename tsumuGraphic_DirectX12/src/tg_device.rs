@@ -17,8 +17,12 @@ use crate::tg_descriptor_controller::{TgD3d12CPUDescriptorHandle, TgD3d12GPUDesc
 use crate::tg_directx::{CpID3D12CommandAllocator,  CpID3D12Fence, CpID3D12PipelineState, CpID3D12Resource, CpID3D12RootSignature, CpID3DBlob};
 use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
 use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
-
+#[derive(Clone)]
 pub struct TgID3D12Device(pub *const ID3D12Device);
+//ID3D12Deviceはスレッドセーフだと書いてあったよ
+unsafe impl Send for TgID3D12Device {}
+unsafe impl Sync for TgID3D12Device {}
+
 impl TgID3D12Device {
     pub fn new() -> TgID3D12Device {
         match TgID3D12Device::cp_d3d12create_device() {
@@ -218,8 +222,7 @@ impl TgID3D12Device {
             }
         }
     }
-    pub fn cp_create_buffer_resource(&self, nodemask: u32, vertices: &mut Vec<u8>) -> Result<CpID3D12Resource<Vec<u8>>, HRESULT> {
-        vertices.shrink_to_fit();
+    pub fn cp_create_buffer_resource(&self, nodemask: u32, vertices: &Vec<u8>) -> Result<CpID3D12Resource<Vec<u8>>, HRESULT> {
         let size:u64 = (vertices.len() * std::mem::size_of::<u8>()) as u64;
         let heapProperties = D3D12_HEAP_PROPERTIES {
             Type: D3D12_HEAP_TYPE_UPLOAD,
@@ -248,8 +251,7 @@ impl TgID3D12Device {
             &None, size)?;
         Ok(vertexRes)
     }
-    pub fn cp_create_index_resource(&self, nodemask: u32, indices: &mut Vec<u32>) -> Result<CpID3D12Resource<Vec<u32>>, HRESULT> {
-        indices.shrink_to_fit();
+    pub fn cp_create_index_resource(&self, nodemask: u32, indices: &Vec<u32>) -> Result<CpID3D12Resource<Vec<u32>>, HRESULT> {
         let size:u64 = (indices.len() * std::mem::size_of::<u32>()) as u64;
         let heapProperties = D3D12_HEAP_PROPERTIES {
             Type: D3D12_HEAP_TYPE_UPLOAD,

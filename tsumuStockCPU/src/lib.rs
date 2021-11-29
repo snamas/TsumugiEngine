@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::Thread;
 use gltf::{buffer, Document, image};
-use tsumugi::controller::{TsumugiController, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 
@@ -82,14 +82,16 @@ pub struct TsumugiStock(pub &'static Path, pub fn() -> Option<TsumugiVertexBinar
 
 impl TsumugiStockController {
     ///オブジェクトを保存するよ
-    fn store(&self, stock_element: TsumugiStock)->Option<&'static Path> {
+    fn store(&self, stock_element: TsumugiStock,tc:&TsumugiController_thread)->Option<&'static Path> {
         let thread_arc = self.clone();
         let stock = stock_element.clone();
+        let thread_tc = tc.tc.clone();
         //todo:ここ雑にロードのマルチスレッド化を行っている
         thread::spawn(move ||{
             //ここでオブジェクトのロードがあるよ
             let figure_data = stock.1().unwrap();
             thread_arc.0.lock().unwrap().insert(stock.0, Arc::from(figure_data));
+            Self::announce(stock_element.0,&thread_tc);
         });
         return Some(stock_element.0);
     }
@@ -107,6 +109,10 @@ impl TsumugiStockController {
             self.load_store_sync(path)
         }
     }
+    fn announce(figure_path:&'static Path,tc:&TsumugiController){
+        //オブジェクトが生成されたら、生成されたことを「周知」させる
+        tc.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(figure_path).lifetime(TsumugiControllerItemLifeTime::Once).displayname("announce").into());
+    }
 }
 
 impl Default for TsumugiStockController {
@@ -117,19 +123,13 @@ impl Default for TsumugiStockController {
 fn none()->Option<TsumugiVertexBinary>{
     None
 }
-
 impl TsumugiObject for TsumugiStockController {
     fn on_create(&self, tc: &tsumugi::controller::TsumugiController_thread) {
         let mut object_hashmap = self.clone();
         let recept_object = TsumugiParcelReceptor::new(TsumugiStock { 0: &Path::new(""), 1: none })
             .subscribe_tc(Arc::new(move |object,tc| {
                 //todo:ここキーをどうするか未定
-                let object_key_distribution = object_hashmap.store(*object.parcel);
-                dbg!(object_key_distribution.unwrap());
-                if let Some(figure_key) = object_key_distribution{
-                    //オブジェクトが生成されたら、生成されたことを「周知」させる
-                    tc.tc.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(figure_key).lifetime(TsumugiControllerItemLifeTime::Once).displayname("announce").into());
-                }
+                object_hashmap.store(*object.parcel,tc);
                 TsumugiControllerItemState::Fulfilled
             })).to_antenna().displayname("recept_object");
         let dist_stock = TsumugiParcelDistributor::new(self.clone()).lifetime(TsumugiControllerItemLifeTime::Eternal).displayname("TsumugiStockController");

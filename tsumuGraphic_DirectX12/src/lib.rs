@@ -9,6 +9,7 @@ mod tg_dxgi_factory;
 mod tg_dxgi_swapchain;
 mod tg_descriptor_controller;
 mod tg_graphics_pipeline;
+mod tsumuGPUStoreList;
 
 use std::ops::DerefMut;
 use std::path::Path;
@@ -31,60 +32,36 @@ use tsumugi::signal::TsumugiSignal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
 use tsumuObject::TsumugiObjectController;
 use tsumuStockCPU::TsumugiStockController;
-use crate::Draw::DrawWindow;
+use crate::tg_device::TgID3D12Device;
+use crate::tsumuGPUStoreList::TsumuGPUStoreList;
 
 static CONTROLLER_NAME: &str = "tsumuGraphicDx12";
-
-struct TsumuGraphicObject();
-struct TsumuGPUStore();
-fn CheckStoreList(arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread){
-    let thread_handle = arc_hwnd.clone();
-    let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiStockController>::new().subscribe(Arc::new(move |parcel|{
-        let recept = parcel.parcel.clone().unwrap();
-        let thread_handle = thread_handle.clone();
-        thread::spawn(move||{
-            loop {
-                sleep(Duration::new(0, 1));
-                let mut itemcount = 0;
-                for item in recept.0.lock().unwrap().keys(){
-                    unsafe {
-                        let hdc = GetDC((*thread_handle.0.lock().unwrap()).0.deref_mut());
-                        InvalidateRect((*thread_handle.0.lock().unwrap()).0.deref_mut(), null_mut(), TRUE);
-                        let text = format!("path = {}", item.to_str().unwrap());
-                        TextOutW(hdc, 150, 20 + itemcount, text.to_wide_chars().as_ptr(), text.len() as i32);
-                        ReleaseDC((*thread_handle.0.lock().unwrap()).0.deref_mut(), hdc);
-                    }
-                    itemcount += 20;
-                }
+#[derive(Clone)]
+pub struct TsumuGraphicObject(TsumuGPUStoreList);
+impl TsumuGraphicObject {
+    fn receptHWND(&self,tc: &TsumugiController_thread) {
+        let thread_object_list = self.clone();
+        let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
+            let thread_handleWindow = arc_hwnd.parcel.clone().unwrap();
+            {
+                thread_object_list.draw_window(&thread_handleWindow, &tct);
             }
-        });
-        TsumugiControllerItemState::Fulfilled
-    })).to_antenna().lifetime(TsumugiControllerItemLifeTime::Once);
-    tc.tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(Object_antenna.into());
+            TsumugiControllerItemState::Fulfilled
+        };
+        let hwnd_dist = TsumugiParcelReceptorNoVal::<ArcHWND>::new().subscribe_tc(Arc::new(func)).to_antenna().displayname("DirectX12ReceptHWND").lifetime(TsumugiControllerItemLifeTime::Once);
+        tc.tc.find("tsumugiWindowHandle").unwrap().recept_channel_sender.send(hwnd_dist.into());
+    }
 }
-fn receptHWND(tc: &TsumugiController_thread) {
-    let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
-        let thread_handleWindow = arc_hwnd.parcel.clone().unwrap();
-        {
-            CheckStoreList(&thread_handleWindow, &tct);
-            DrawWindow(&thread_handleWindow, &tct);
-        }
-        TsumugiControllerItemState::Fulfilled
-    };
-    let hwnd_dist = TsumugiParcelReceptorNoVal::<ArcHWND>::new().subscribe_tc(Arc::new(func)).to_antenna().lifetime(TsumugiControllerItemLifeTime::Once);
-    tc.tc.find("tsumugiWindowHandle").unwrap().recept_channel_sender.send(hwnd_dist.into());
-}
-
 impl TsumugiObject for TsumuGraphicObject{
     fn on_create(&self, tc: &TsumugiController_thread) {
-        receptHWND(tc);
+        self.receptHWND(tc);
     }
 }
 
 pub fn spown_direct_x12_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
     let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
     newtc.set_objects(vec![
-        Box::new(TsumuGraphicObject()),
+        Box::new(TsumuGraphicObject(TsumuGPUStoreList{ list: Arc::new(Mutex::new(Default::default())), tg_device: Arc::new(TgID3D12Device::new()) })),
     ]);
     return newtc;
 }

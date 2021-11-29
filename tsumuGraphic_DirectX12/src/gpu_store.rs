@@ -14,57 +14,64 @@ use winapi::um::d3d12::{D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INDEX_BUFFER_VIEW, D
 use crate::tg_directx::CpID3D12RootSignature;
 use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
 
-struct TsumuGPUStoreElement {
-    vertex_view:D3D12_VERTEX_BUFFER_VIEW,
-    index_view:D3D12_INDEX_BUFFER_VIEW,
-    input_element_desc: Vec<D3D12_INPUT_ELEMENT_DESC>
+pub struct TsumuGPUStoreData {
+    vertex_view: D3D12_VERTEX_BUFFER_VIEW,
+    index_view: D3D12_INDEX_BUFFER_VIEW,
+    input_element_desc: Vec<D3D12_INPUT_ELEMENT_DESC>,
 }
-///StoreListは3Dデータを管理する。Pathは3Dデータのパス
-struct TsumugiGPUStoreList {
-    list: Arc<Mutex<HashMap<&'static Path,FigureDataLayer>>>,
-}
+//まあ大丈夫でしょ
+unsafe impl Send for TsumuGPUStoreData {}
+unsafe impl Sync for TsumuGPUStoreData {}
+
 ///データ層の下にはマテリアル層がある
-struct FigureDataLayer {
-    figure_data:TsumuGPUStoreElement,
-    material_layer:HashMap<u64,MaterialLayer>
+pub struct FigureDataLayer {
+    pub(crate) figure_data: Option<Vec<TsumuGPUStoreData>>,
+    pub(crate) material_layer: HashMap<u64, MaterialLayer>,
 }
+
 ///マテリアル層の下にはオブジェクト層がある
-struct MaterialLayer{
-    material:Material,
-    object_layer:HashMap<u64, Tsumugi3DObject>
+pub struct MaterialLayer {
+    material: Material,
+    object_layer: HashMap<u64, Tsumugi3DObject>,
 }
+const POSITION:*const str = "POSITION";
+const NORMAL:*const str = "NORMAL";
+const TANGENT:*const str = "TANGENT";
+const COLOR:*const str = "COLOR";
+const TEXCOORD:*const str = "TEXCOORD";
+const JOINT:*const str = "JOINT";
+const WEIGHT:*const str = "WEIGHT";
 
-
-impl TsumuGPUStoreElement {
+impl TsumuGPUStoreData {
     ///3DデータをDirectX12用にロードするよ。TsumugiVertexBinaryが可変参照で必要だけど、これは変わらないよ。
-    fn load(&mut self,data: &mut TsumugiVertexBinary, tg_id3d12device: &TgID3D12Device)->Vec<Self> {
-        data.vertex.iter_mut().zip(data.index.iter_mut()).zip(data.shader_input_attribute.iter_mut()).map(|((mut vertex,mut index), mut attributes)|{
+    pub fn load(data: &mut Arc<TsumugiVertexBinary>, tg_id3d12device: &TgID3D12Device) -> Vec<Self> {
+        data.vertex.iter().zip(data.index.iter()).zip(data.shader_input_attribute.iter()).map(|((vertex, index), attributes)| {
             let mut CpVertResource = tg_id3d12device.cp_create_buffer_resource(0, vertex).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             let mut mapvertdata = CpVertResource.cp_map(0, None).unwrap();
             mapvertdata.copy_from_slice(&vertex);
-            CpVertResource.cp_unmap(0,&None);
-            let TgVertView:D3D12_VERTEX_BUFFER_VIEW = D3D12_VERTEX_BUFFER_VIEW{
+            CpVertResource.cp_unmap(0, &None);
+            let TgVertView: D3D12_VERTEX_BUFFER_VIEW = D3D12_VERTEX_BUFFER_VIEW {
                 BufferLocation: CpVertResource.tg_get_GPU_Virtal_Address(),
                 SizeInBytes: vertex.len() as UINT,
-                StrideInBytes: attributes.1
+                StrideInBytes: attributes.1,
             };
             let mut CpIndexResource = tg_id3d12device.cp_create_index_resource(0, index).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             let mut mapindexdata = CpIndexResource.cp_map(0, None).unwrap();
             mapindexdata.copy_from_slice(&index);
-            CpIndexResource.cp_unmap(0,&None);
-            let TgIndexView:D3D12_INDEX_BUFFER_VIEW = D3D12_INDEX_BUFFER_VIEW{
+            CpIndexResource.cp_unmap(0, &None);
+            let TgIndexView: D3D12_INDEX_BUFFER_VIEW = D3D12_INDEX_BUFFER_VIEW {
                 BufferLocation: CpVertResource.tg_get_GPU_Virtal_Address(),
                 SizeInBytes: (index.len() * std::mem::size_of::<u32>()) as UINT,
-                Format: DXGI_FORMAT_R32_UINT
+                Format: DXGI_FORMAT_R32_UINT,
             };
             let mut inputElementDesc: Vec<D3D12_INPUT_ELEMENT_DESC> = Vec::with_capacity(attributes.0.len());
             {
-                for attr in &mut attributes.0 {
+                for attr in &attributes.0 {
                     match attr {
                         Attribute::Position => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("POSITION").expect("CString::new failed").into_raw(),
+                                    SemanticName: POSITION.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R32G32B32_FLOAT,
                                     InputSlot: 0,
@@ -76,7 +83,7 @@ impl TsumuGPUStoreElement {
                         Attribute::Normal => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("NORMAL").expect("CString::new failed").into_raw(),
+                                    SemanticName: NORMAL.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R32G32B32_FLOAT,
                                     InputSlot: 0,
@@ -88,7 +95,7 @@ impl TsumuGPUStoreElement {
                         Attribute::Tangent => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("TANGENT").expect("CString::new failed").into_raw(),
+                                    SemanticName: TANGENT.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
                                     InputSlot: 0,
@@ -96,12 +103,11 @@ impl TsumuGPUStoreElement {
                                     InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
                                     InstanceDataStepRate: 0,
                                 })
-
                         }
                         Attribute::Color(Color::RGBA_f32) => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("COLOR").expect("CString::new failed").into_raw(),
+                                    SemanticName: COLOR.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
                                     InputSlot: 0,
@@ -113,7 +119,7 @@ impl TsumuGPUStoreElement {
                         Attribute::Texcoord(Texcoord::f32) => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("TEXCOORD").expect("CString::new failed").into_raw(),
+                                    SemanticName: TEXCOORD.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R32G32_FLOAT,
                                     InputSlot: 0,
@@ -125,7 +131,7 @@ impl TsumuGPUStoreElement {
                         Attribute::Joint(Joint::u16) => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("JOINT").expect("CString::new failed").into_raw(),
+                                    SemanticName: JOINT.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R16G16_UINT,
                                     InputSlot: 0,
@@ -133,12 +139,11 @@ impl TsumuGPUStoreElement {
                                     InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
                                     InstanceDataStepRate: 0,
                                 })
-
                         }
                         Attribute::Weight(Weight::f32) => {
                             inputElementDesc.push(
                                 D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: CString::new("WEIGHT").expect("CString::new failed").into_raw(),
+                                    SemanticName: WEIGHT.cast(),
                                     SemanticIndex: 0,
                                     Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
                                     InputSlot: 0,
@@ -151,10 +156,10 @@ impl TsumuGPUStoreElement {
                     }
                 }
             }
-            TsumuGPUStoreElement{
+            TsumuGPUStoreData {
                 vertex_view: TgVertView,
                 index_view: TgIndexView,
-                input_element_desc: inputElementDesc
+                input_element_desc: inputElementDesc,
             }
         }).collect()
         // let cp_d3d12_root_signature_desc: CpD3D12_ROOT_SIGNATURE_DESC = Default::default();
@@ -166,11 +171,4 @@ impl TsumuGPUStoreElement {
         //     panic!("last OS error: {:?}", v)
         // });
     }
-}
-fn main() {
-    let a1 = [1, 2, 3];
-    let a2 = [4, 5, 6];
-    let a3 = [7, 8, 9];
-    let mut iter = a1.iter().zip(a2.iter()).zip(a3.iter());
-
 }

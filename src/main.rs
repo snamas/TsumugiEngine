@@ -20,6 +20,7 @@ use tsumugiWindowController::spown_window_handler;
 use tsumuGraphic_DirectX12::spown_direct_x12_handler;
 use tsumuObject::{spown_3d_object_handler, Tsumugi3DObject};
 use tsumuStockCPU::{Attribute, ObjectLoader, spown_object_stock_handler, Texcoord, TsumugiVertexBinary};
+use crate::boxloader::SampleBox;
 use crate::shapelloader::Shapell;
 
 struct ObjectA {
@@ -64,7 +65,7 @@ pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiContro
             input_item_local: Arc::new(Mutex::new(0)),
             local_tsumugi_sender: newtc.local_channel_sender.clone(),
             shapell: Tsumugi3DObject::new("shapell", Path::new("Asset/shapell_Mtoon.vrm"), Shapell::load),
-            sample_box: Tsumugi3DObject::new("samplebox",Path::new("Asset/Box.glb"), Shapell::load)
+            sample_box: Tsumugi3DObject::new("samplebox",Path::new("Asset/Box.glb"), SampleBox::load)
         }),
         // Box::new(ObjectA { input_item: Arc::new(Mutex::new(500)), input_item_local: Arc::new(Mutex::new(0)), local_tsumugi_sender: newtc.local_channel_sender.clone() })
     ]);
