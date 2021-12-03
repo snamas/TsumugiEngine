@@ -57,7 +57,7 @@ pub enum TsumugiControllerItemLifeTime {
     Lifecycle(u32),
 }
 
-pub struct TsumugiController_thread {
+pub struct TsumugiController_threadlocal {
     pub tc: TsumugiController,
     tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>,
 }
@@ -128,7 +128,7 @@ impl TsumugiControllerItemLifeTime {
 }
 
 pub trait TsumugiObject {
-    fn on_create(&self, tc: &TsumugiController_thread);
+    fn on_create(&self, tc: &TsumugiController_threadlocal);
 }
 
 pub trait TsumugiControllerTrait {
@@ -192,6 +192,7 @@ impl TsumugiControllerTrait for TsumugiController {
     fn set_object(&mut self, mut tsumugi_object:Box<dyn TsumugiObject + Send>){
         self.tsumugi_object_sender.send(tsumugi_object);
     }
+    // todo:ここ、すべてのスレッドを起動してから送りたい。そうでないと落ちる場合がある。
     fn set_objects(&mut self, mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>) {
         for tsumugi_object in tsumugi_object_list {
             self.tsumugi_object_sender.send(tsumugi_object);
@@ -208,7 +209,7 @@ impl TsumugiControllerTrait for TsumugiController {
         }
     }
     fn execute_tsumugi_thread(&self, thread_receivers: Thread_receivers) -> JoinHandle<()> {
-        let mut tc_thread = TsumugiController_thread { tc: self.clone(), tsumugi_object_vector: vec![] };
+        let mut tc_thread = TsumugiController_threadlocal { tc: self.clone(), tsumugi_object_vector: vec![] };
         let plane_name = self.tsumugi_controller_name.clone();
         thread::spawn(move || {
             //todo:うまいことロックを使いこなそうcondvarというやつをつかって
@@ -243,7 +244,7 @@ impl TsumugiControllerTrait for TsumugiController {
     }
 }
 
-impl TsumugiController_thread {
+impl TsumugiController_threadlocal {
     fn set_objects(&mut self, mut tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>) {
         for tsumugi_object in &tsumugi_object_list {
             tsumugi_object.on_create(self);
@@ -743,7 +744,7 @@ mod tests {
     use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaType};
     use crate::antenna_chain::TsumugiReceptorChain;
     use std::collections::{HashMap, HashSet};
-    use crate::controller::{DepotHashList, TsumugiAntennaChainHashList, TsumugiControllerApplication, TsumugiController, TsumugiChannelSenders, TsumugiObject, TsumugiParcelHashList, TsumugiControllerItemLifeTime, TsumugiControllerItemState, ControllLoopKitStruct, Thread_receivers, TsumugiController_thread};
+    use crate::controller::{DepotHashList, TsumugiAntennaChainHashList, TsumugiControllerApplication, TsumugiController, TsumugiChannelSenders, TsumugiObject, TsumugiParcelHashList, TsumugiControllerItemLifeTime, TsumugiControllerItemState, ControllLoopKitStruct, Thread_receivers, TsumugiController_threadlocal};
     use crate::distributor::{TsumugiParcelDistributor, TsumugiDistributor};
     use std::sync::mpsc::{Receiver, Sender};
     use std::time::{Instant};
@@ -792,10 +793,10 @@ mod tests {
         }
     }
 
-    impl TsumugiController_thread {
+    impl TsumugiController_threadlocal {
         pub(crate) fn new(tcs: TsumugiChannelSenders) -> Self {
             let (object_sender, object_receiver) = mpsc::channel();
-            TsumugiController_thread {
+            TsumugiController_threadlocal {
                 tc: TsumugiController {
                     local_channel_sender: tcs.clone(),
                     global_channel_sender: tcs,
@@ -822,7 +823,7 @@ mod tests {
     #[test]
     fn chain_parse_test() {
         let (mut controll_loop_kit, tsumugi_channel_senders) = ControllLoopKitStruct::new();
-        let mut tc = TsumugiController_thread::new(tsumugi_channel_senders.clone());
+        let mut tc = TsumugiController_threadlocal::new(tsumugi_channel_senders.clone());
         let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().antenna_name("pa");
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet>::new();
         let mut chain = crate::antenna_chain!(tsumugi_pr.clone(),tb_pr);
@@ -853,7 +854,7 @@ mod tests {
     #[test]
     fn parcelparse_test() {
         let (mut controll_loop_kit, tsumugi_channel_senders) = ControllLoopKitStruct::new();
-        let mut tc = TsumugiController_thread::new(tsumugi_channel_senders.clone());
+        let mut tc = TsumugiController_threadlocal::new(tsumugi_channel_senders.clone());
         let parcel = TsumugiParcelDistributor::new(Parcel { package: 1 });
         let mut parcel_name = TsumugiParcelDistributor::new(Parcel { package: 1 });
         parcel_name.parcel_name = Some("parcel_is_here".into());
@@ -889,7 +890,7 @@ mod tests {
     #[test]
     fn controller_nothread_test() {
         let (mut controll_loop_kit, tsumugi_channel_senders) = ControllLoopKitStruct::new();
-        let mut tc = TsumugiController_thread::new(tsumugi_channel_senders.clone());
+        let mut tc = TsumugiController_threadlocal::new(tsumugi_channel_senders.clone());
         {
             //parcelを送る（Once）
             let new_parcel = TsumugiParcelDistributor::new(Parcel { package: 10 });
@@ -1000,7 +1001,7 @@ mod tests {
     #[test]
     fn controller_antennachain_nothread_test() {
         let (mut controll_loop_kit, tsumugi_channel_senders) = ControllLoopKitStruct::new();
-        let mut tc = TsumugiController_thread::new(tsumugi_channel_senders.clone());
+        let mut tc = TsumugiController_threadlocal::new(tsumugi_channel_senders.clone());
         let mut parcelpackage = Arc::new(Mutex::new("NoMessage".to_string()));
         {
             //AntennaChainをつくる。AntennaChain[ParcelStr("pr"),AntennaChain[tsumugi_pr,tb_pr]]

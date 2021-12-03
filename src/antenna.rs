@@ -2,7 +2,7 @@ use std::any::{TypeId, Any};
 use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
 use crate::parcel_receptor::TsumugiParcelReceptor;
 use crate::parcel_receptor_return_value::TsumugiParcelReceptorReturnValue;
-use crate::controller::{TsumugiControllerApplication, TsumugiControllerItemState, TsumugiControllerItemLifeTime, TsumugiController_thread};
+use crate::controller::{TsumugiControllerApplication, TsumugiControllerItemState, TsumugiControllerItemLifeTime, TsumugiController_threadlocal};
 use crate::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 
 
@@ -19,11 +19,11 @@ pub struct TsumugiAntenna {
 }
 
 pub trait TsumugiFuture {
-    fn poll(self: &mut Self, tct: &TsumugiController_thread) -> TsumugiControllerItemState;
+    fn poll(self: &mut Self, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState;
 }
 
 pub trait TsumugiParcelInput {
-    fn input_item(self: &mut Self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_thread) -> TsumugiControllerItemState;
+    fn input_item(self: &mut Self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState;
 }
 
 pub trait TsumugiParcelOutput<T> {
