@@ -5,33 +5,34 @@ use std::iter::{Zip};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tsumuObject::Tsumugi3DObject;
-use tsumuStockCPU::{Attribute, Color, Joint, Material, Texcoord, TsumugiVertexBinary, Weight};
+use tsumuFigureStockCPU::{Attribute, Color, Joint, Texcoord, TsumugiVertexBinary, Weight};
 use crate::tg_device::TgID3D12Device;
 use nalgebra;
 use winapi::shared::dxgiformat::{DXGI_FORMAT_R16G16_UINT, DXGI_FORMAT_R32_UINT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT};
 use winapi::shared::minwindef::UINT;
 use winapi::um::d3d12::{D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INDEX_BUFFER_VIEW, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, D3D12_INPUT_ELEMENT_DESC, D3D12_VERTEX_BUFFER_VIEW, D3D_ROOT_SIGNATURE_VERSION_1_0};
+use tsumugiShaderStock::TsumugiMaterial;
 use crate::tg_directx::CpID3D12RootSignature;
 use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
 
-pub struct TsumuGPUStoreData {
+pub struct TsumuGPUFigureDataStore {
     vertex_view: D3D12_VERTEX_BUFFER_VIEW,
     index_view: D3D12_INDEX_BUFFER_VIEW,
     input_element_desc: Vec<D3D12_INPUT_ELEMENT_DESC>,
 }
 //まあ大丈夫でしょ
-unsafe impl Send for TsumuGPUStoreData {}
-unsafe impl Sync for TsumuGPUStoreData {}
+unsafe impl Send for TsumuGPUFigureDataStore {}
+unsafe impl Sync for TsumuGPUFigureDataStore {}
 
 ///データ層の下にはマテリアル層がある
 pub struct FigureDataLayer {
-    pub(crate) figure_data: Option<Vec<TsumuGPUStoreData>>,
-    pub(crate) material_layer: HashMap<u64, MaterialLayer>,
+    pub figure_data: Option<Vec<TsumuGPUFigureDataStore>>,
+    pub material_layer: HashMap<u64, MaterialLayer>,
 }
 
 ///マテリアル層の下にはオブジェクト層がある
 pub struct MaterialLayer {
-    material: Material,
+    material: TsumugiMaterial,
     object_layer: HashMap<u64, Tsumugi3DObject>,
 }
 const POSITION:*const str = "POSITION";
@@ -42,12 +43,13 @@ const TEXCOORD:*const str = "TEXCOORD";
 const JOINT:*const str = "JOINT";
 const WEIGHT:*const str = "WEIGHT";
 
-impl TsumuGPUStoreData {
+impl TsumuGPUFigureDataStore {
     ///3DデータをDirectX12用にロードするよ。TsumugiVertexBinaryが可変参照で必要だけど、これは変わらないよ。
     pub fn load(data: &mut Arc<TsumugiVertexBinary>, tg_id3d12device: &TgID3D12Device) -> Vec<Self> {
         data.vertex.iter().zip(data.index.iter()).zip(data.shader_input_attribute.iter()).map(|((vertex, index), attributes)| {
             let mut CpVertResource = tg_id3d12device.cp_create_buffer_resource(0, vertex).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
-            let mut mapvertdata = CpVertResource.cp_map(0, None).unwrap();
+            //todo:これDropするときに値が消去されないか心配
+            let mut mapvertdata = CpVertResource.cp_vec_map(0, None,vertex).unwrap();
             mapvertdata.copy_from_slice(&vertex);
             CpVertResource.cp_unmap(0, &None);
             let TgVertView: D3D12_VERTEX_BUFFER_VIEW = D3D12_VERTEX_BUFFER_VIEW {
@@ -56,7 +58,7 @@ impl TsumuGPUStoreData {
                 StrideInBytes: attributes.1,
             };
             let mut CpIndexResource = tg_id3d12device.cp_create_index_resource(0, index).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
-            let mut mapindexdata = CpIndexResource.cp_map(0, None).unwrap();
+            let mut mapindexdata = CpIndexResource.cp_vec_map(0, None,&index).unwrap();
             mapindexdata.copy_from_slice(&index);
             CpIndexResource.cp_unmap(0, &None);
             let TgIndexView: D3D12_INDEX_BUFFER_VIEW = D3D12_INDEX_BUFFER_VIEW {
@@ -156,7 +158,7 @@ impl TsumuGPUStoreData {
                     }
                 }
             }
-            TsumuGPUStoreData {
+            TsumuGPUFigureDataStore {
                 vertex_view: TgVertView,
                 index_view: TgIndexView,
                 input_element_desc: inputElementDesc,

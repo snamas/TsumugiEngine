@@ -2,7 +2,7 @@ use std::ptr::null_mut;
 use winapi::shared::minwindef::UINT;
 use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_INDEX_BUFFER_VIEW, D3D12_PRIMITIVE_TOPOLOGY, D3D12_RECT, D3D12_RESOURCE_BARRIER, D3D12_VERTEX_BUFFER_VIEW, D3D12_VIEWPORT, ID3D12GraphicsCommandList, ID3D12PipelineState};
 use winapi::um::winnt::HRESULT;
-use tsugumi_windows_library::HRESULTinto;
+use tsugumi_windows_library::{HRESULTinto, vector_Hresult};
 use crate::tg_directx::{CpID3D12CommandAllocator, CpID3D12PipelineState, CpID3D12RootSignature};
 
 pub struct CpID3D12GraphicsCommandList(pub *mut ID3D12GraphicsCommandList);
@@ -95,5 +95,18 @@ impl CpID3D12GraphicsCommandList {
         unsafe {
             self.0.as_ref().unwrap().DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation)
         }
+    }
+}
+pub struct CommandLists(pub Vec<CpID3D12GraphicsCommandList>);
+impl  CommandLists {
+    pub fn tg_close(&self) -> Result<HRESULT, HRESULT> {
+        self.0.iter().map(|command_list|{
+            command_list.cp_close()
+        }).collect::<Vec<_>>().to_result()
+    }
+    pub fn tg_reset<const N:usize>(&self,cp_id3d12command_allocator: &mut [CpID3D12CommandAllocator;N], p_initial_state_opt: &mut Option<ID3D12PipelineState>)->Result<HRESULT,HRESULT>{
+        self.0.iter().zip(cp_id3d12command_allocator).map(|(commandlist,commandalloc)|{
+            commandlist.cp_reset(commandalloc,p_initial_state_opt)
+        }).collect::<Vec<_>>().to_result()
     }
 }

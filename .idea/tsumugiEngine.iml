@@ -17,7 +17,6 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-9ed08313571603d5/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumuGraphic_DirectX12/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tsumugi_windows_library/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/tsumuStockCPU/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/bindings-287b06ab55739a96/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/crc32fast-c71fb6dcf75c42bf/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/generic-array-a7c5631141ae5684/out" isTestSource="false" />
@@ -76,6 +75,8 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-a45bd37ba30ed9ec/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-sys-6a3bb78982cfcc7e/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/sdl2-sys-be10c04529e99596/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumuFigureStockCPU/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tsumugiShaderStock/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -1,5 +1,7 @@
 mod shapelloader;
 mod boxloader;
+mod test_shader_PS;
+mod test_shader_VS;
 
 use std::future::Future;
 use std::sync::{Arc, Mutex, mpsc};
@@ -19,7 +21,7 @@ use tsumugi::antenna_chain::TsumugiAntennaType;
 use tsumugiWindowController::spown_window_handler;
 use tsumuGraphic_DirectX12::spown_direct_x12_handler;
 use tsumuObject::{spown_3d_object_handler, Tsumugi3DObject};
-use tsumuStockCPU::{Attribute, ObjectLoader, spown_object_stock_handler, Texcoord, TsumugiVertexBinary};
+use tsumuFigureStockCPU::{Attribute, ObjectLoader, spown_object_stock_handler, Texcoord, TsumugiVertexBinary};
 use crate::boxloader::SampleBox;
 use crate::shapelloader::Shapell;
 
@@ -88,7 +90,6 @@ fn main() {
     tsumugiroot.execute_tsumugi_functions(vec![spown_3d_object_handler,spown_object_controller, spown_window_handler,spown_object_stock_handler,spown_direct_x12_handler,spown_debug_window_handler]);
     dbg!(tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().keys());
     loop {
-
     }
     println!("Hello, world!");
 }

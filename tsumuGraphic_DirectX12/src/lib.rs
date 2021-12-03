@@ -1,4 +1,4 @@
-mod gpu_store;
+pub mod gpu_figure_store;
 mod tg_directx;
 mod tg_device;
 mod tg_command_queue;
@@ -10,6 +10,7 @@ mod tg_dxgi_swapchain;
 mod tg_descriptor_controller;
 mod tg_graphics_pipeline;
 mod tsumuGPUStoreList;
+mod shader_store;
 
 use std::ops::DerefMut;
 use std::path::Path;
@@ -30,8 +31,6 @@ use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiCo
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumugi::signal::TsumugiSignal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
-use tsumuObject::TsumugiObjectController;
-use tsumuStockCPU::TsumugiStockController;
 use crate::tg_device::TgID3D12Device;
 use crate::tsumuGPUStoreList::TsumuGPUStoreList;
 
@@ -54,7 +53,9 @@ impl TsumuGraphicObject {
 }
 impl TsumugiObject for TsumuGraphicObject{
     fn on_create(&self, tc: &TsumugiController_thread) {
+        self.0.fetch_figuredata(&tc.tc);
         self.receptHWND(tc);
+        self.0.debug_GPUStore(&tc.tc);
     }
 }
 

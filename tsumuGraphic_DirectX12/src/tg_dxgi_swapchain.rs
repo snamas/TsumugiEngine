@@ -48,7 +48,7 @@ impl<const N: usize> CpIDXGISwapChain4<N> {
             match self.value.as_ref().unwrap().GetBuffer(index, &ID3D12Resource::uuidof(), &mut _unknownobj).result() {
                 Ok(v) => {
                     match (_unknownobj as *mut ID3D12Resource).as_mut() {
-                        Some(id3d12resource) => { return Ok(CpID3D12Resource { value: id3d12resource, size:0, _phantom: Default::default() }); }
+                        Some(id3d12resource) => { return Ok(CpID3D12Resource { value: id3d12resource, bytesize:0, _phantom: Default::default() }); }
                         None => { return Err(v); }
                     }
                 }

@@ -152,12 +152,12 @@ impl TgID3D12Device {
             }
         }
     }
-    pub fn cp_create_command_lists<const N: usize>(&self, node_mask: UINT, type_: D3D12_COMMAND_LIST_TYPE, command_allocator: &mut CpID3D12CommandAllocator, initial_pypeline_state_opt: &mut Option<ID3D12PipelineState>)-> Result<[CpID3D12GraphicsCommandList;N], HRESULT>{
+    pub fn cp_create_command_lists<const N: usize>(&self, node_mask: UINT, type_: D3D12_COMMAND_LIST_TYPE, command_allocator: &mut [CpID3D12CommandAllocator;N], initial_pypeline_state_opt: &mut Option<ID3D12PipelineState>)-> Result<[CpID3D12GraphicsCommandList;N], HRESULT>{
         let mut commandlists_uninit:MaybeUninit<[CpID3D12GraphicsCommandList;N]>= unsafe { MaybeUninit::uninit().assume_init() };
-        for i in unsafe{commandlists_uninit.assume_init_mut()}{
-            let mut alloc = self.cp_create_command_list(node_mask,type_,command_allocator,initial_pypeline_state_opt)?;
-            std::mem::swap(i, &mut alloc);
-            std::mem::forget(alloc);
+        for (allocator,list) in command_allocator.iter_mut().zip(unsafe{commandlists_uninit.assume_init_mut()}){
+            let mut spawn_list = self.cp_create_command_list(node_mask, type_, allocator, initial_pypeline_state_opt)?;
+            std::mem::swap(list, &mut spawn_list);
+            std::mem::forget(spawn_list);
         }
         let commandlists = unsafe{ commandlists_uninit.assume_init()};
         Ok(commandlists)
@@ -212,7 +212,7 @@ impl TgID3D12Device {
                 Ok(v) => {
                     match (_unknownobj as *mut ID3D12Resource).as_mut() {
                         Some(_id3d12_resorce) => {
-                            return Ok(CpID3D12Resource { value: _id3d12_resorce, size: size, _phantom: Default::default() });
+                            return Ok(CpID3D12Resource { value: _id3d12_resorce, bytesize: size, _phantom: Default::default() });
                         }
 
                         None => { return Err(v); }

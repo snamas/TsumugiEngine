@@ -4,12 +4,13 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::atomic::Ordering::SeqCst;
 use nalgebra::{Point, Point2, Point3};
+use tsumuFigureStockCPU::TsumugiVertexBinary;
 use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::controller::TsumugiControllerItemLifeTime::Eternal;
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
-use tsumuStockCPU::{TsumugiVertexBinary, TsumugiStock};
+use tsumuFigureStockCPU::{TsumugiStock};
 
 static CONTROLLER_NAME: &str = "tsumugi3dObject";
 ///ObjectKeyはオブジェクト固有の番号。すべてのオブジェクト更新にはこの鍵が必要

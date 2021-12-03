@@ -18,7 +18,7 @@ use crate::tg_device::TgID3D12Device;
 pub struct CpID3D12Resource<T: 'static> {
     pub(crate) value: *mut ID3D12Resource,
     ///BUFFER_VIEW構造体で要素のサイズを入れるのに必要
-    pub(crate) size:u64,
+    pub(crate) bytesize:u64,
     pub(crate) _phantom:PhantomData<T>
 }
 pub struct CpID3D12CommandAllocator(pub(crate) *mut ID3D12CommandAllocator);
@@ -33,7 +33,7 @@ pub struct CpD3D12_RESOURCE_BARRIER(pub *mut D3D12_RESOURCE_BARRIER);
 pub struct CpEventW(*mut c_void);
 
 impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
-    pub fn cp_map(&self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>) -> Result<&'static mut T, HRESULT> {
+    pub fn cp_map<S>(&self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>) -> Result<&'static mut S, HRESULT> {
         let pReadRange: *const D3D12_RANGE = match pReadRangeOpt {
             Some(v) => { &v }
             None => { null_mut() }
@@ -41,7 +41,7 @@ impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
         unsafe {
             let mut _unknownobj = null_mut();
             match self.value.as_ref().unwrap().Map(subresource, pReadRange, &mut _unknownobj).result() {
-                Ok(v) => match (_unknownobj as *mut T).as_mut() {
+                Ok(v) => match (_unknownobj as *mut S).as_mut() {
                     None => { Err(v) }
                     Some(_obj) => {
                         Ok(_obj)
@@ -67,6 +67,14 @@ impl<T: std::clone::Clone + Debug> CpID3D12Resource<T> {
     }
     pub fn tg_get_GPU_Virtal_Address(&self)->D3D12_GPU_VIRTUAL_ADDRESS{
         unsafe {self.value.as_ref().unwrap().GetGPUVirtualAddress()}
+    }
+}
+
+impl<T: std::clone::Clone + Debug> CpID3D12Resource<Vec<T>> {
+    pub fn cp_vec_map(&self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>,vector:&Vec<T>)-> Result<&'static mut [T], HRESULT>{
+        let resource = self.cp_map::<T>(subresource,pReadRangeOpt)?;
+        let resource = unsafe { std::slice::from_raw_parts_mut(resource, vector.len()) };
+        Ok(resource)
     }
 }
 impl CpID3DBlob {

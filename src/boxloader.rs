@@ -1,7 +1,8 @@
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tsumuStockCPU::{Attribute, Color, Joint, Material, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
+use tsumugiShaderStock::Material;
+use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
 const MaterialID:AtomicU64 = AtomicU64::new(1);
 #[derive(Clone)]
 pub struct SampleBox {
@@ -38,8 +39,8 @@ impl ObjectLoader for SampleBox {
                 }
                 {
                     let attribute = vec![
-                        tsumuStockCPU::Attribute::Position,
-                        tsumuStockCPU::Attribute::Normal
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal
                     ];
                     let mut vertexbytes = 0;
                     for attr in &attribute {

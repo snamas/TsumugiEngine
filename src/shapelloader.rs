@@ -1,12 +1,16 @@
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tsumuStockCPU::{Attribute, Color, Joint, Material, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
+use tsumugiShaderStock::{Material, TsumugiMaterial};
+use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
+use crate::test_shader_PS::TestShaderPS;
+use crate::test_shader_VS::TestShaderVS;
+
 const MaterialID:AtomicU64 = AtomicU64::new(1);
 #[derive(Clone)]
 pub struct Shapell {
     materialid:u64,
-    pub material:Material
+    pub material:TsumugiMaterial
 }
 ///あとでbindgenみたいに自動生成できるように組む
 impl ObjectLoader for Shapell {
@@ -44,9 +48,9 @@ impl ObjectLoader for Shapell {
                 }
                 {
                     let attribute = vec![
-                        tsumuStockCPU::Attribute::Position,
-                        tsumuStockCPU::Attribute::Normal,
-                        tsumuStockCPU::Attribute::Texcoord(tsumuStockCPU::Texcoord::f32)];
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal,
+                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)];
                     let mut vertexbytes = 0;
                     for attr in &attribute {
                         match attr {
@@ -91,11 +95,18 @@ impl Shapell {
     fn new()->Self{
         Shapell {
             materialid: MaterialID.fetch_add(1, Ordering::SeqCst),
-            material: Material {
-                texture: vec![],
-                f32: vec![],
-                f32_4: vec![],
-                material_element_id: 0
+            material: TsumugiMaterial {
+                shader_path_vs: TestShaderVS::load(),
+                shader_path_ps: TestShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ts: None,
+                material: Material {
+                    texture: vec![],
+                    f32: vec![],
+                    f32_4: vec![],
+                    material_element_id: 0
+                }
             },
         }
     }
@@ -105,11 +116,18 @@ impl Default for Shapell{
     fn default() -> Self {
         Shapell {
             materialid: 0,
-            material: Material {
-                texture: vec![],
-                f32: vec![],
-                f32_4: vec![],
-                material_element_id: 0
+            material: TsumugiMaterial {
+                shader_path_vs: TestShaderVS::load(),
+                shader_path_ps: TestShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ts: None,
+                material: Material{
+                    texture: vec![],
+                    f32: vec![],
+                    f32_4: vec![],
+                    material_element_id: 0
+                }
             },
         }
     }

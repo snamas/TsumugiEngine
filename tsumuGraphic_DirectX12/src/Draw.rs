@@ -4,21 +4,25 @@ use std::thread;
 use winapi::Interface;
 use winapi::shared::dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 use winapi::shared::minwindef::{TRUE, UINT};
-use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12GetDebugInterface};
+use winapi::shared::winerror::{HRESULT, NOERROR};
+use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12GetDebugInterface, ID3D12PipelineState};
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
+use tsugumi_windows_library::vector_Hresult;
 use tsumugi::controller::TsumugiController_thread;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
 use crate::tg_device::TgID3D12Device;
-use crate::tg_directx::{CpD3D12_RESOURCE_BARRIER, CpEventW};
+use crate::tg_directx::{CpD3D12_RESOURCE_BARRIER, CpEventW, CpID3D12CommandAllocator};
 use crate::tg_directx::CpD3d12ResourceBarrierDescType::CpD3d12ResourceTransitionBarrier;
 use crate::tg_dxgi_factory::CpIDXGIFactory6;
+use crate::tg_graphics_command_list::{CommandLists, CpID3D12GraphicsCommandList};
 use crate::TsumuGraphicObject;
 
 const FrameCount: usize = 2;
 
 impl TsumuGraphicObject {
     pub fn draw_window(&self,arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread) {
+        let a = [1,2].iter().map(|v|{v});
         let mut thread_handle_window = arc_hwnd.clone();
         let tg_directx = self.clone();
         thread::spawn(move || {
@@ -29,9 +33,10 @@ impl TsumuGraphicObject {
             drop(thread_handle_window);
             let mut currentindex = tg_swapchain.cp_get_current_back_buffer_index();
             let mut currentindex_usize = currentindex as usize;
-            let mut tg_command_allocators = tg_device.cp_create_command_allocators::<2>(D3D12_COMMAND_LIST_TYPE_DIRECT).unwrap();
-            let tg_command_list = tg_device.cp_create_command_lists::<1>(0, D3D12_COMMAND_LIST_TYPE_DIRECT, tg_command_allocators.get_mut(currentindex_usize).unwrap(), &mut None).unwrap();
-            let mut tg_command_list = Vec::from(tg_command_list);
+            let mut tg_command_allocators = tg_device.cp_create_command_allocators::<3>(D3D12_COMMAND_LIST_TYPE_DIRECT).unwrap();
+            //Command ListをReset()するとき、バインドするCommand Allocatorを前のCommand Allocatorと別のものに変えることができます。(https://shobomaru.wordpress.com/2015/04/20/d3d12-command/)
+            let tg_command_list = tg_device.cp_create_command_lists(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &mut tg_command_allocators, &mut None).unwrap();
+            let mut tg_command_list = CommandLists(Vec::from(tg_command_list));
             let mut tg_descriptor_rtv = tg_device.cp_create_descriptor_heap(D3D12_DESCRIPTOR_HEAP_DESC {
                 Type: D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                 NumDescriptors: FrameCount as UINT,
@@ -52,10 +57,10 @@ impl TsumuGraphicObject {
             }
             let mut tg_fence = tg_device.cp_create_fence(1, D3D12_FENCE_FLAG_NONE).unwrap();
             let mut event = CpEventW::cp_create_event_w(None, false, false, None).unwrap();
-            tg_command_list[0].cp_close();
+            tg_command_list.tg_close();
             loop {
-                tg_command_allocators[currentindex_usize].cp_reset();
-                tg_command_list[0].cp_reset(&mut tg_command_allocators[currentindex_usize], &mut None);
+                tg_command_allocators.iter().map(|alloc|{alloc.cp_reset()}).collect::<Vec<_>>();
+                tg_command_list.tg_reset(&mut tg_command_allocators, &mut None);
                 let mut transition_barrier_desc = D3D12_RESOURCE_TRANSITION_BARRIER {
                     pResource: tg_resource_rendertarges[currentindex_usize].value,
                     Subresource: 0,
@@ -63,16 +68,16 @@ impl TsumuGraphicObject {
                     StateAfter: D3D12_RESOURCE_STATE_RENDER_TARGET,
                 };
                 let barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
-                tg_command_list[0].cp_resource_barrier(&vec![barrier_desc]);
-                tg_command_list[0].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
-                tg_command_list[0].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 0., 1.], None);
+                tg_command_list.0[0].cp_resource_barrier(&vec![barrier_desc]);
+                tg_command_list.0[1].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
+                tg_command_list.0[1].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 0., 1.], None);
 
                 transition_barrier_desc.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
                 transition_barrier_desc.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
                 let barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
-                tg_command_list[0].cp_resource_barrier(&vec![barrier_desc]);
-                tg_command_list[0].cp_close();
-                tg_command_queue.cp_execute_command_lists(&mut tg_command_list);
+                tg_command_list.0[2].cp_resource_barrier(&vec![barrier_desc]);
+                tg_command_list.tg_close();
+                tg_command_queue.cp_execute_command_lists(&mut tg_command_list.0);
                 tg_swapchain.cp_present(0, 0);
                 tg_fence.cp_increment_counter(1);
                 tg_command_queue.cp_signal(&mut tg_fence);

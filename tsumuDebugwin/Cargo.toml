@@ -12,8 +12,9 @@ tsumugi = {path = "../tsumugi" }
 gl = "0.14.0"
 imgui-glow-renderer = { git = "https://github.com/imgui-rs/imgui-rs"}
 glow = "0.10.0"
-tsumuStockCPU = {path = "../tsumuStockCPU" }
+tsumuFigureStockCPU = {path = "../tsumuFigureStockCPU" }
 tsumuObject = {path = "../tsumuObject" }
+tsumuGraphic_DirectX12 = {path = "../tsumuGraphic_DirectX12" }
 
 [dependencies.sdl2]
 version = "0.34.5"

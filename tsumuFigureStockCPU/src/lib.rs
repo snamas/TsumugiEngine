@@ -52,31 +52,18 @@ pub struct TsumugiVertexBinary {
     pub vertex:Vec<Vec<u8>>,
     pub index:Vec<Vec<u32>>
 }
-#[derive(Clone)]
-pub struct TsumugiMaterial {
-    pub shader_path:&'static Path,
-    pub material:Material
-}
-#[derive(Clone)]
-pub struct Material{
-    pub texture:Vec<&'static Path>,
-    pub f32:Vec<f32>,
-    pub f32_4:Vec<[f32;4]>,
-    pub material_element_id:u32
-}
-
 
 pub trait ObjectLoader {
     fn load()->Option<TsumugiVertexBinary>;
 }
 
-struct tsumugiStock();
 
 static TSUMUGI_STOCK_CPUNAME: &str = "TsumugiStockCPU";
 ///PathはオブジェクトのパスをカギとしたHashMap
 #[derive(Clone)]
 pub struct TsumugiStockController(pub Arc<Mutex<HashMap<&'static Path, Arc<TsumugiVertexBinary>>>>);
 
+///Pathはオブジェクトのパス
 #[derive(Clone, Copy)]
 pub struct TsumugiStock(pub &'static Path, pub fn() -> Option<TsumugiVertexBinary>);
 

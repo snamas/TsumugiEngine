@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 nalgebra = "0.24.0"
 tsumugi = {path = "../tsumugi" }
-tsumuStockCPU = {path = "../tsumuStockCPU" }
+tsumuFigureStockCPU = {path = "../tsumuFigureStockCPU" }

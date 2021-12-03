@@ -10,9 +10,9 @@ pub struct CpID3D12CommandQueue{
 }
 
 impl CpID3D12CommandQueue {
-    pub fn cp_execute_command_lists(&self, cp_ID3D12CommandLists: &mut Vec<CpID3D12GraphicsCommandList>) {
-        let NumCommandLists: u32 = cp_ID3D12CommandLists.len() as u32;
-        let ppCommandLists = cp_ID3D12CommandLists.as_ptr() as *const *mut ID3D12CommandList;
+    pub fn cp_execute_command_lists(&self, cp_id3d12command_lists: &mut Vec<CpID3D12GraphicsCommandList>) {
+        let NumCommandLists: u32 = cp_id3d12command_lists.len() as u32;
+        let ppCommandLists = cp_id3d12command_lists.as_ptr() as *const *mut ID3D12CommandList;
         unsafe {
             self.value.as_ref().unwrap().ExecuteCommandLists(NumCommandLists, ppCommandLists);
         }

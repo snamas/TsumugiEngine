@@ -15,9 +15,10 @@ members = [
     "tsumugiKeyboardInput",
     "tsumugiWinRT",
     "tsumuGraphic_DirectX12",
-    "tsumuStockCPU",
+    "tsumuFigureStockCPU",
     "tsumuObject",
-    "tsumuDebugwin"
+    "tsumuDebugwin",
+    "tsumugiShaderStock"
 ]
 [dependencies]
 tsumugi_macro = {path = "tsumugi_macro" }
@@ -27,7 +28,8 @@ tsumugiKeyboardInput = {path = "tsumugiKeyboardInput" }
 tsugumi_windows_library = {path = "tsumugi_windows_library" }
 tsumugiWinRT = {path = "tsumugiWinRT" }
 tsumuGraphic_DirectX12 = {path = "tsumuGraphic_DirectX12" }
-tsumuStockCPU = {path = "tsumuStockCPU" }
+tsumuFigureStockCPU = {path = "tsumuFigureStockCPU" }
 tsumuObject = {path = "tsumuObject" }
 tsumuDebugwin  = {path = "tsumuDebugwin" }
+tsumugiShaderStock  = {path = "tsumugiShaderStock" }
 gltf = { version ="0.16", features = ["import"]}

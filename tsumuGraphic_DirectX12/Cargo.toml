@@ -10,6 +10,7 @@ winapi = { version = "0.3.9", features = ["winuser","winerror","d3d12","dxgi1_6"
 tsugumi_windows_library =  {path = "../tsumugi_windows_library" }
 tsumugi = {path = "../tsumugi" }
 tsumugiWindowController = {path = "../tsumugiWindowController" }
-tsumuStockCPU = {path = "../tsumuStockCPU" }
+tsumuFigureStockCPU = {path = "../tsumuFigureStockCPU" }
+tsumugiShaderStock = {path = "../tsumugiShaderStock" }
 tsumuObject = {path = "../tsumuObject" }
 nalgebra = "0.24.0"

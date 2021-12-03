@@ -702,8 +702,17 @@ dependencies = [
  "imgui-glow-renderer",
  "imgui-sdl2-support",
  "sdl2",
+ "tsumuFigureStockCPU",
+ "tsumuGraphic_DirectX12",
  "tsumuObject",
- "tsumuStockCPU",
+ "tsumugi",
+]
+
+[[package]]
+name = "tsumuFigureStockCPU"
+version = "0.1.0"
+dependencies = [
+ "gltf",
  "tsumugi",
 ]
 
@@ -713,9 +722,10 @@ version = "0.1.0"
 dependencies = [
  "nalgebra",
  "tsugumi_windows_library",
+ "tsumuFigureStockCPU",
  "tsumuObject",
- "tsumuStockCPU",
  "tsumugi",
+ "tsumugiShaderStock",
  "tsumugiWindowController",
  "winapi",
 ]
@@ -725,15 +735,7 @@ name = "tsumuObject"
 version = "0.1.0"
 dependencies = [
  "nalgebra",
- "tsumuStockCPU",
- "tsumugi",
-]
-
-[[package]]
-name = "tsumuStockCPU"
-version = "0.1.0"
-dependencies = [
- "gltf",
+ "tsumuFigureStockCPU",
  "tsumugi",
 ]
 
@@ -748,11 +750,12 @@ dependencies = [
  "gltf",
  "tsugumi_windows_library",
  "tsumuDebugwin",
+ "tsumuFigureStockCPU",
  "tsumuGraphic_DirectX12",
  "tsumuObject",
- "tsumuStockCPU",
  "tsumugi",
  "tsumugiKeyboardInput",
+ "tsumugiShaderStock",
  "tsumugiWinRT",
  "tsumugiWindowController",
  "tsumugi_macro",
@@ -766,6 +769,10 @@ dependencies = [
  "tsumugi",
  "winapi",
 ]
+
+[[package]]
+name = "tsumugiShaderStock"
+version = "0.1.0"
 
 [[package]]
 name = "tsumugiWinRT"

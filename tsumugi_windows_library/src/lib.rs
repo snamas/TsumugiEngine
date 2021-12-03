@@ -3,7 +3,7 @@ use std::os::windows::ffi::OsStrExt;
 use winapi::ctypes::c_long;
 use winapi::shared::minwindef::{BOOL, TRUE, FALSE};
 use winapi::um::winnt::HRESULT;
-use winapi::shared::winerror::S_OK;
+use winapi::shared::winerror::{NOERROR, S_OK};
 
 pub trait BoolInto {
     fn intobool(self) -> bool;
@@ -56,5 +56,14 @@ impl BoolFrom for bool {
             true => {TRUE}
             false => {FALSE}
         }
+    }
+}
+pub trait vector_Hresult{
+    fn to_result(self) ->Result<HRESULT, HRESULT>;
+}
+
+impl vector_Hresult for Vec<Result<HRESULT,HRESULT>>{
+    fn to_result(self) -> Result<HRESULT, HRESULT> {
+        self.iter().fold(Ok(NOERROR),|acc,x|{acc.and(*x)})
     }
 }
