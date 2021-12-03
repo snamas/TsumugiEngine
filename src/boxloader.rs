@@ -1,13 +1,15 @@
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tsumugiShaderStock::Material;
+use tsumugiShaderStock::{Material, TsumugiMaterial};
 use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
+use crate::test_shader_PS::TestShaderPS;
+use crate::test_shader_VS::TestShaderVS;
+
 const MaterialID:AtomicU64 = AtomicU64::new(1);
 #[derive(Clone)]
 pub struct SampleBox {
-    materialid:u64,
-    pub material:Material
+    pub material:TsumugiMaterial
 }
 ///あとでbindgenみたいに自動生成できるように組む
 impl ObjectLoader for SampleBox {
@@ -85,12 +87,18 @@ impl ObjectLoader for SampleBox {
 impl SampleBox {
     fn new()->Self{
         SampleBox {
-            materialid: MaterialID.fetch_add(1, Ordering::SeqCst),
-            material: Material {
-                texture: vec![],
-                f32: vec![],
-                f32_4: vec![],
-                material_element_id: 0
+            material: TsumugiMaterial {
+                material_name: "SampleBoxMaterial",
+                shader_path_vs: TestShaderVS::load(),
+                shader_path_ps: TestShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ds: None,
+                material: Material {
+                    texture: vec![],
+                    buffer: Vec::new(),
+                    material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst)
+                }
             },
         }
     }
@@ -99,12 +107,18 @@ impl SampleBox {
 impl Default for SampleBox {
     fn default() -> Self {
         SampleBox {
-            materialid: 0,
-            material: Material {
-                texture: vec![],
-                f32: vec![],
-                f32_4: vec![],
-                material_element_id: 0
+            material: TsumugiMaterial {
+                material_name: "SampleBoxMaterial",
+                shader_path_vs: TestShaderVS::load(),
+                shader_path_ps: TestShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ds: None,
+                material: Material {
+                    texture: vec![],
+                    buffer: Vec::new(),
+                    material_element_id: 0
+                }
             },
         }
     }

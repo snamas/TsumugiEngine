@@ -9,7 +9,7 @@ use imgui::{Condition, Ui};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use tsumugi::controller::{DebugKit, TsumugiController, TsumugiController_thread, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{DebugKit, TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use imgui_sdl2_support;
 use imgui_glow_renderer;
 use glow;
@@ -21,6 +21,7 @@ use sdl2::video::{GLProfile, Window};
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumuObject::{Tsumugi3DObject, TsumugiObjectController};
 use tsumuFigureStockCPU::TsumugiStockController;
+use tsumugiShaderStock::TsumugiShaderStockController;
 use tsumuGraphic_DirectX12::gpu_figure_store::FigureDataLayer;
 
 
@@ -29,6 +30,7 @@ static TSUMUGI_DEBUG_WINDOWS: &str = "TsumugiDebugWin";
 struct TsumguiWindow {
     objectlist: Arc<RwLock<Arc<Mutex<HashMap<u64, Tsumugi3DObject>>>>>,
     cpu_store_list: Arc<RwLock<Box<TsumugiStockController>>>,
+    shader_list:Arc<RwLock<TsumugiShaderStockController>>,
     gpu_store_list:Arc<RwLock<Arc<Mutex<HashMap<&'static Path,FigureDataLayer>>>>>,
     debug_list:Arc<Mutex<HashMap<String,DebugKit>>>
 }
@@ -40,7 +42,7 @@ fn glow_context(window: &Window) -> glow::Context {
 }
 
 impl TsumguiWindow {
-    fn check_object_list(&self, tc: &TsumugiController_thread) {
+    fn check_object_list(&self, tc: &TsumugiController_threadlocal) {
         let mut thread_arc = self.objectlist.clone();
         let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiObjectController>::new().subscribe(Arc::new(move |parcel| {
             let recept = parcel.parcel.as_ref().unwrap().object_hashmap.clone();
@@ -49,7 +51,7 @@ impl TsumguiWindow {
         })).to_antenna().displayname("check_object").lifetime(TsumugiControllerItemLifeTime::Once);
         tc.tc.find("tsumugi3dObject").unwrap().recept_channel_sender.send(Object_antenna.into());
     }
-    fn check_store_list(&self, tc: &TsumugiController_thread) {
+    fn check_store_list(&self, tc: &TsumugiController_threadlocal) {
         let mut thread_arc = self.cpu_store_list.clone();
         let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiStockController>::new().subscribe(Arc::new(move |parcel| {
             let recept = parcel.parcel.clone().unwrap();
@@ -58,7 +60,16 @@ impl TsumguiWindow {
         })).to_antenna().displayname("check_store").lifetime(TsumugiControllerItemLifeTime::Once);
         tc.tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(Object_antenna.into());
     }
-    fn check_gpu_store_list(&self, tc: &TsumugiController_thread) {
+    fn check_shader_list(&self, tc: &TsumugiController_threadlocal) {
+        let mut thread_arc = self.shader_list.clone();
+        let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiShaderStockController>::new().subscribe(Arc::new(move |parcel| {
+            let recept = parcel.parcel.clone().unwrap();
+            *thread_arc.write().unwrap() = *recept;
+            TsumugiControllerItemState::Fulfilled
+        })).to_antenna().displayname("check_shader_store").lifetime(TsumugiControllerItemLifeTime::Once);
+        tc.tc.find("TsumugiStockShader").unwrap().recept_channel_sender.send(Object_antenna.into());
+    }
+    fn check_gpu_store_list(&self, tc: &TsumugiController_threadlocal) {
         let mut thread_arc = self.gpu_store_list.clone();
         let Object_antenna = TsumugiParcelReceptorNoVal::<Arc<Mutex<HashMap<&'static Path,FigureDataLayer>>>>::new().subscribe(Arc::new(move |parcel| {
             let recept = *parcel.parcel.clone().unwrap();
@@ -67,7 +78,7 @@ impl TsumguiWindow {
         })).to_antenna().displayname("check_gpu_store").lifetime(TsumugiControllerItemLifeTime::Once);
         tc.tc.find("tsumuGraphicDx12").unwrap().recept_channel_sender.send(Object_antenna.into());
     }
-    fn check_debug_list(&self, tc: &TsumugiController_thread){
+    fn check_debug_list(&self, tc: &TsumugiController_threadlocal){
         let mut thread_arc = self.debug_list.clone();
         let antenna = TsumugiParcelReceptorNoVal::<DebugKit>::new().subscribe(Arc::new(move |parcel|{
             let plane_name = parcel.parcel.clone().unwrap().plane_name;
@@ -80,13 +91,15 @@ impl TsumguiWindow {
 }
 
 impl TsumugiObject for TsumguiWindow {
-    fn on_create(&self, tc: &TsumugiController_thread) {
+    fn on_create(&self, tc: &TsumugiController_threadlocal) {
         self.check_object_list(tc);
         self.check_store_list(tc);
+        self.check_shader_list(tc);
         self.check_gpu_store_list(tc);
         self.check_debug_list(tc);
         let thread_objectlist = self.objectlist.clone();
         let thread_cpu_store_list = self.cpu_store_list.clone();
+        let thread_shader_store_list = self.shader_list.clone();
         let thread_gpu_store_list = self.gpu_store_list.clone();
         let thread_debug_list = self.debug_list.clone();
         thread::spawn(move || {
@@ -154,6 +167,16 @@ impl TsumugiObject for TsumguiWindow {
                             }
                         });
                 }
+                if let Some(_t) = ui.tree_node("MaterialStoreList") {
+                    ui.child_window("MaterialStoreList")
+                        .size([0.0, 60.0])
+                        .border(true)
+                        .build(|| {
+                            for object in thread_shader_store_list.read().unwrap().0.lock().unwrap().keys() {
+                                ui.text(format!("Object Name:{}", object));
+                            }
+                        });
+                }
                 if let Some(_t) = ui.tree_node("GPUStoreList") {
                     ui.child_window("GPUStoreList")
                         .size([0.0, 60.0])
@@ -208,6 +231,7 @@ pub fn spown_debug_window_handler(tc: &Box<TsumugiController>) -> Box<TsumugiCon
         Box::new(TsumguiWindow {
             objectlist: Arc::new(RwLock::new(Arc::new(Mutex::new(HashMap::default())))),
             cpu_store_list: Arc::new(RwLock::new(Box::new(TsumugiStockController{ 0: Arc::new(Mutex::new(HashMap::default())) }))),
+            shader_list: Arc::new(RwLock::new(TsumugiShaderStockController::default())),
             gpu_store_list: Arc::new(RwLock::new(Arc::new(Mutex::new(HashMap::default())))),
             debug_list: Arc::new(Mutex::new(HashMap::new()))
         }),

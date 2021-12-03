@@ -164,7 +164,7 @@ impl TsumuGPUFigureDataStore {
                 input_element_desc: inputElementDesc,
             }
         }).collect()
-        // let cp_d3d12_root_signature_desc: CpD3D12_ROOT_SIGNATURE_DESC = Default::default();
+        // let cp_d3d12_root_signature_desc: CpD3d12RootSignatureDesc = Default::default();
         // let rootSigBlob = cp_d3d12_root_signature_desc.cp_d3d12serialize_root_signature(D3D_ROOT_SIGNATURE_VERSION_1_0).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
         // let mut rootsignature = cp_id3d12device.cp_create_root_signature(0, &rootSigBlob).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
         // let mut cpgraphicsPipelineStateDesc = CpD3D12_GRAPHICS_PIPELINE_STATE_DESC::create_d3d12_graphics_pipeline_state_desc(&vsBlob, &psBlob, &input_element_desc, &mut rootsignature, None, None, None);

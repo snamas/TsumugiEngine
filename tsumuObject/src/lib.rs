@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::atomic::Ordering::SeqCst;
 use nalgebra::{Point, Point2, Point3};
 use tsumuFigureStockCPU::TsumugiVertexBinary;
-use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::controller::TsumugiControllerItemLifeTime::Eternal;
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
@@ -93,7 +93,7 @@ impl Tsumugi3DObject {
         };
         {
             let tsumugiStock = TsumugiStock { 0: tsumugi3dobject_parcel.tsumugi3dobject.figure_data_path, 1: self.object_load_function };
-            tsumugiStock.store_object(tc);
+            tsumugiStock.store_figure(tc);
         }
         let duplicate_key = tsumugi3dobject_parcel.object_key.clone();
         let p_dist = TsumugiParcelDistributor::new(tsumugi3dobject_parcel);
@@ -117,7 +117,7 @@ impl Tsumugi3DObject {
 }
 
 impl TsumugiObject for TsumugiObjectController {
-    fn on_create(&self, tc: &TsumugiController_thread) {
+    fn on_create(&self, tc: &TsumugiController_threadlocal) {
         let mut object_hashmap = self.clone();
         let recept_object = TsumugiParcelReceptorNoVal::<Tsumugi3DObjectParcel>::new()
             .subscribe(Arc::new(move |object| {

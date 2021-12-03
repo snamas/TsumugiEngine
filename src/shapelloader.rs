@@ -9,7 +9,6 @@ use crate::test_shader_VS::TestShaderVS;
 const MaterialID:AtomicU64 = AtomicU64::new(1);
 #[derive(Clone)]
 pub struct Shapell {
-    materialid:u64,
     pub material:TsumugiMaterial
 }
 ///あとでbindgenみたいに自動生成できるように組む
@@ -94,18 +93,17 @@ impl ObjectLoader for Shapell {
 impl Shapell {
     fn new()->Self{
         Shapell {
-            materialid: MaterialID.fetch_add(1, Ordering::SeqCst),
             material: TsumugiMaterial {
+                material_name: "ShapellMaterial",
                 shader_path_vs: TestShaderVS::load(),
                 shader_path_ps: TestShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
-                shader_path_ts: None,
+                shader_path_ds: None,
                 material: Material {
                     texture: vec![],
-                    f32: vec![],
-                    f32_4: vec![],
-                    material_element_id: 0
+                    buffer: Vec::new(),
+                    material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst)
                 }
             },
         }
@@ -115,17 +113,16 @@ impl Shapell {
 impl Default for Shapell{
     fn default() -> Self {
         Shapell {
-            materialid: 0,
             material: TsumugiMaterial {
+                material_name: "ShapellMaterial",
                 shader_path_vs: TestShaderVS::load(),
                 shader_path_ps: TestShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
-                shader_path_ts: None,
+                shader_path_ds: None,
                 material: Material{
                     texture: vec![],
-                    f32: vec![],
-                    f32_4: vec![],
+                    buffer: Vec::new(),
                     material_element_id: 0
                 }
             },

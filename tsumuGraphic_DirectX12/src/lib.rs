@@ -10,7 +10,9 @@ mod tg_dxgi_swapchain;
 mod tg_descriptor_controller;
 mod tg_graphics_pipeline;
 mod tsumuGPUStoreList;
-mod shader_store;
+mod material_loader;
+mod tg_root_signature;
+mod tg_sampler;
 
 use std::ops::DerefMut;
 use std::path::Path;
@@ -27,7 +29,7 @@ use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::wingdi::TextOutW;
 use winapi::um::winuser::{GetDC, InvalidateRect, ReleaseDC};
 use tsugumi_windows_library::wide_char;
-use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumugi::signal::TsumugiSignal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
@@ -38,9 +40,9 @@ static CONTROLLER_NAME: &str = "tsumuGraphicDx12";
 #[derive(Clone)]
 pub struct TsumuGraphicObject(TsumuGPUStoreList);
 impl TsumuGraphicObject {
-    fn receptHWND(&self,tc: &TsumugiController_thread) {
+    fn receptHWND(&self,tc: &TsumugiController_threadlocal) {
         let thread_object_list = self.clone();
-        let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_thread| {
+        let func = move |arc_hwnd: &TsumugiParcelReceptorNoVal<ArcHWND>, tct: &TsumugiController_threadlocal| {
             let thread_handleWindow = arc_hwnd.parcel.clone().unwrap();
             {
                 thread_object_list.draw_window(&thread_handleWindow, &tct);
@@ -52,7 +54,7 @@ impl TsumuGraphicObject {
     }
 }
 impl TsumugiObject for TsumuGraphicObject{
-    fn on_create(&self, tc: &TsumugiController_thread) {
+    fn on_create(&self, tc: &TsumugiController_threadlocal) {
         self.0.fetch_figuredata(&tc.tc);
         self.receptHWND(tc);
         self.0.debug_GPUStore(&tc.tc);

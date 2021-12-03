@@ -706,6 +706,7 @@ dependencies = [
  "tsumuGraphic_DirectX12",
  "tsumuObject",
  "tsumugi",
+ "tsumugiShaderStock",
 ]
 
 [[package]]
@@ -773,6 +774,9 @@ dependencies = [
 [[package]]
 name = "tsumugiShaderStock"
 version = "0.1.0"
+dependencies = [
+ "tsumugi",
+]
 
 [[package]]
 name = "tsumugiWinRT"

@@ -6,6 +6,7 @@ use tsumugi::controller::{TsumugiController, TsumugiControllerItemLifeTime, Tsum
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumuFigureStockCPU::TsumugiStockController;
+use tsumugiShaderStock::TsumugiMaterial;
 use crate::gpu_figure_store::{FigureDataLayer, TsumuGPUFigureDataStore};
 use crate::tg_device::TgID3D12Device;
 use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
@@ -21,11 +22,13 @@ impl TsumuGPUStoreList {
     pub fn fetch_figuredata(&self,tc:&TsumugiController){
         let thread_list = self.list.clone();
         let thread_device = self.tg_device.clone();
-        let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiStockController>::new().subscribe_tc(Arc::new(move |parcel,tc| {
+        //StockControllerをゲットする。
+        let figure_antenna = TsumugiParcelReceptorNoVal::<TsumugiStockController>::new().subscribe_tc(Arc::new(move |parcel, tc| {
             let recept = *parcel.parcel.clone().unwrap();
             let recept = recept.clone();
             let thread_list = thread_list.clone();
             let thread_device = thread_device.clone();
+            //ゲットしたStockControllerを使って周知(announce)させたオブジェクトを取り込むよ
             let antenna = TsumugiParcelReceptorNoVal::<&'static Path>::new().subscribe(Arc::new(move |parcel|{
                 let parcel = *parcel.parcel.clone().unwrap();
                 ///todo:ここ非同期じゃないので長時間ロックに注意
@@ -38,7 +41,17 @@ impl TsumuGPUStoreList {
             tc.tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(antenna.into());
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("check_store").lifetime(TsumugiControllerItemLifeTime::Once);
-        tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(Object_antenna.into());
+        tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(figure_antenna.into());
+    }
+    pub fn fetch_materialdata(&self,tc:&TsumugiController){
+        let thread_list = self.list.clone();
+        let thread_device = self.tg_device.clone();
+        //todo:ここ読み取りするアンテナが一つなら出来るけど複数読み取りで正確にマテリアルが同期されない可能性があるよ
+        let material_antenna = TsumugiParcelReceptorNoVal::<TsumugiMaterial>::new().subscribe(Arc::new(move|parcel|{
+
+            TsumugiControllerItemState::Fulfilled
+        }));
+
     }
     pub fn debug_GPUStore(&self,tc:&TsumugiController){
         let thread_list = self.list.clone();

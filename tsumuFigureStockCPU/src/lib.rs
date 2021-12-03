@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::Thread;
 use gltf::{buffer, Document, image};
-use tsumugi::controller::{TsumugiController, TsumugiController_thread, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 
@@ -69,7 +69,7 @@ pub struct TsumugiStock(pub &'static Path, pub fn() -> Option<TsumugiVertexBinar
 
 impl TsumugiStockController {
     ///オブジェクトを保存するよ
-    fn store(&self, stock_element: TsumugiStock,tc:&TsumugiController_thread)->Option<&'static Path> {
+    fn store(&self, stock_element: TsumugiStock, tc:&TsumugiController_threadlocal) ->Option<&'static Path> {
         let thread_arc = self.clone();
         let stock = stock_element.clone();
         let thread_tc = tc.tc.clone();
@@ -107,13 +107,13 @@ impl Default for TsumugiStockController {
         TsumugiStockController { 0: Arc::new(Mutex::new(Default::default())) }
     }
 }
-fn none()->Option<TsumugiVertexBinary>{
+fn nofunc() ->Option<TsumugiVertexBinary>{
     None
 }
 impl TsumugiObject for TsumugiStockController {
-    fn on_create(&self, tc: &tsumugi::controller::TsumugiController_thread) {
+    fn on_create(&self, tc: &tsumugi::controller::TsumugiController_threadlocal) {
         let mut object_hashmap = self.clone();
-        let recept_object = TsumugiParcelReceptor::new(TsumugiStock { 0: &Path::new(""), 1: none })
+        let recept_object = TsumugiParcelReceptor::new(TsumugiStock { 0: &Path::new(""), 1: nofunc })
             .subscribe_tc(Arc::new(move |object,tc| {
                 //todo:ここキーをどうするか未定
                 object_hashmap.store(*object.parcel,tc);
@@ -126,15 +126,16 @@ impl TsumugiObject for TsumugiStockController {
 }
 
 impl TsumugiStock {
-    pub fn store_object(&self, tc: &TsumugiController) {
+    pub fn store_figure(&self, tc: &TsumugiController) {
         let tsumugi_path = self.clone();
         let path_dist = TsumugiParcelDistributor::new(tsumugi_path);
+        //todo:ここ生成が間に合わなくてパニックになるよ
         tc.find(TSUMUGI_STOCK_CPUNAME).unwrap().pickup_channel_sender.send(path_dist.into());
     }
 }
 
 
-pub fn spown_object_stock_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
+pub fn spown_figure_stock_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
     let mut newtc = tc.spown(TSUMUGI_STOCK_CPUNAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiStockController::default()),

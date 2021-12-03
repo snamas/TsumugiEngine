@@ -2,9 +2,40 @@ use Default;
 use winapi::um::d3d12::{D3D12_GRAPHICS_PIPELINE_STATE_DESC, D3D12_SHADER_BYTECODE, D3D12_BLEND_DESC, D3D12_STREAM_OUTPUT_DESC, D3D12_RASTERIZER_DESC, D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_STENCILOP_DESC, D3D12_INPUT_LAYOUT_DESC, D3D12_CACHED_PIPELINE_STATE, D3D12_RENDER_TARGET_BLEND_DESC, D3D12_COLOR_WRITE_ENABLE_ALL, D3D12_FILL_MODE_SOLID, D3D12_CULL_MODE_NONE, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED, D3D12_DEFAULT_SAMPLE_MASK, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, D3D12_DEPTH_WRITE_MASK_ZERO, D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF, D3D12_PIPELINE_STATE_FLAG_NONE, D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG, D3D12_INPUT_ELEMENT_DESC, D3D12_ROOT_PARAMETER};
 use winapi::shared::dxgitype::DXGI_SAMPLE_DESC;
 use winapi::_core::ptr::{null_mut, null};
-use winapi::shared::minwindef::{FALSE, TRUE};
+use winapi::shared::minwindef::{FALSE, TRUE, UINT};
 use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_UNKNOWN};
+use tsumugiShaderStock::TsumugiShader;
+
 pub struct TgD3d12GraphicsPipeline(pub D3D12_GRAPHICS_PIPELINE_STATE_DESC);
+
+impl TgD3d12GraphicsPipeline {
+    pub fn VertexShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+        self.0.VS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
+        self
+    }
+
+    pub fn PixelShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+        self.0.PS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
+        self
+    }
+
+    pub fn DomainShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+        self.0.DS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
+        self
+    }
+    pub fn HullShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+        self.0.HS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
+        self
+    }
+    pub fn Geometryhader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+        self.0.HS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
+        self
+    }
+    pub fn InputLayout(mut self, inputelements:Vec<D3D12_INPUT_ELEMENT_DESC>)->Self{
+        self.0.InputLayout = D3D12_INPUT_LAYOUT_DESC{ pInputElementDescs: inputelements.as_ptr(), NumElements: inputelements.len() as UINT };
+        self
+    }
+}
 
 impl Default for TgD3d12GraphicsPipeline {
     fn default() -> Self {
@@ -161,13 +192,5 @@ impl Default for TgD3d12GraphicsPipeline {
             Flags: D3D12_PIPELINE_STATE_FLAG_NONE,
         };
         return TgD3d12GraphicsPipeline(d3d12_graphics_pipeline_state_desc);
-    }
-}
-
-impl TgD3d12GraphicsPipeline {
-    pub fn new(inputelements:Vec<D3D12_INPUT_ELEMENT_DESC>)->Self{
-        let mut pipeline = Self::default();
-        pipeline.0.InputLayout.pInputElementDescs = inputelements.as_ptr();
-        pipeline
     }
 }

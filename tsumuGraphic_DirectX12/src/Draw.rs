@@ -9,7 +9,7 @@ use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DE
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
 use tsugumi_windows_library::vector_Hresult;
-use tsumugi::controller::TsumugiController_thread;
+use tsumugi::controller::TsumugiController_threadlocal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
 use crate::tg_device::TgID3D12Device;
 use crate::tg_directx::{CpD3D12_RESOURCE_BARRIER, CpEventW, CpID3D12CommandAllocator};
@@ -21,7 +21,7 @@ use crate::TsumuGraphicObject;
 const FrameCount: usize = 2;
 
 impl TsumuGraphicObject {
-    pub fn draw_window(&self,arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_thread) {
+    pub fn draw_window(&self,arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_threadlocal) {
         let a = [1,2].iter().map(|v|{v});
         let mut thread_handle_window = arc_hwnd.clone();
         let tg_directx = self.clone();

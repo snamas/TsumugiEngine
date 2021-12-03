@@ -15,6 +15,7 @@ glow = "0.10.0"
 tsumuFigureStockCPU = {path = "../tsumuFigureStockCPU" }
 tsumuObject = {path = "../tsumuObject" }
 tsumuGraphic_DirectX12 = {path = "../tsumuGraphic_DirectX12" }
+tsumugiShaderStock = {path = "../tsumugiShaderStock" }
 
 [dependencies.sdl2]
 version = "0.34.5"

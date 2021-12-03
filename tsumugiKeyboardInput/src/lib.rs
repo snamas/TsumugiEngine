@@ -35,7 +35,7 @@ impl Tsumukey{
 struct TsumugiInputKeyObject();
 
 impl TsumugiObject for TsumugiInputKeyObject {
-    fn on_create(&self, tct: &tsumugi::controller::TsumugiController_thread) {
+    fn on_create(&self, tct: &tsumugi::controller::TsumugiController_threadlocal) {
         let mut tsumugi_key:Tsumukey = Tsumukey([0;256]);
         let mut keysender = tct.tc.global_channel_sender.pickup_channel_sender.clone();
         thread::spawn(move ||{

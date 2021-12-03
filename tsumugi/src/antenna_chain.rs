@@ -189,7 +189,7 @@ mod tests {
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
     use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType, TsumugiReceptorChainTrait};
     use crate::antenna_chain::TsumugiReceptorChain;
-    use crate::controller::{TsumugiChannelSenders, TsumugiController, TsumugiController_thread, TsumugiControllerItemState};
+    use crate::controller::{TsumugiChannelSenders, TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemState};
     use std::sync::{Arc, mpsc, Mutex};
 
     #[derive(Clone)]
@@ -222,13 +222,13 @@ mod tests {
         }
     }
 
-    impl TsumugiController_thread {
+    impl TsumugiController_threadlocal {
         fn new_() -> Self {
             let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
             let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
             let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
 
-            TsumugiController_thread::new(tsumugi_channel_senders)
+            TsumugiController_threadlocal::new(tsumugi_channel_senders)
         }
     }
 
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn chaincheck_antenna_recept() {
-        let mut tc = TsumugiController_thread::new_();
+        let mut tc = TsumugiController_threadlocal::new_();
 
         let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new();
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
