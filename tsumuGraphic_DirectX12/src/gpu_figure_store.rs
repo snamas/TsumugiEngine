@@ -12,19 +12,19 @@ use winapi::shared::dxgiformat::{DXGI_FORMAT_R16G16_UINT, DXGI_FORMAT_R32_UINT, 
 use winapi::shared::minwindef::UINT;
 use winapi::um::d3d12::{D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INDEX_BUFFER_VIEW, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, D3D12_INPUT_ELEMENT_DESC, D3D12_VERTEX_BUFFER_VIEW, D3D_ROOT_SIGNATURE_VERSION_1_0};
 use tsumugiShaderStock::TsumugiMaterial;
-use crate::tg_directx::CpID3D12RootSignature;
+use crate::tg_directx::{CpID3D12PipelineState, CpID3D12RootSignature};
 use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
 
 pub struct TsumuGPUFigureDataStore {
-    vertex_view: D3D12_VERTEX_BUFFER_VIEW,
-    index_view: D3D12_INDEX_BUFFER_VIEW,
-    input_element_desc: Vec<D3D12_INPUT_ELEMENT_DESC>,
+    pub vertex_view: D3D12_VERTEX_BUFFER_VIEW,
+    pub index_view: D3D12_INDEX_BUFFER_VIEW,
+    pub index_len:u32
 }
 //まあ大丈夫でしょ
 unsafe impl Send for TsumuGPUFigureDataStore {}
 unsafe impl Sync for TsumuGPUFigureDataStore {}
 
-///データ層の下にはマテリアル層がある
+///データ層の下にはマテリアル層がある（マテリアルの配列サイズはデータのサイズと基本同じ。同じでない場合は０番が参照される。）
 pub struct FigureDataLayer {
     pub figure_data: Option<Vec<TsumuGPUFigureDataStore>>,
     pub material_layer: HashMap<u64, MaterialLayer>,
@@ -32,16 +32,9 @@ pub struct FigureDataLayer {
 
 ///マテリアル層の下にはオブジェクト層がある
 pub struct MaterialLayer {
-    material: TsumugiMaterial,
-    object_layer: HashMap<u64, Tsumugi3DObject>,
+    pub(crate) material: Vec<(CpID3D12PipelineState,CpID3D12RootSignature)>,
+    pub(crate) object_layer: HashMap<u64, Tsumugi3DObject>,
 }
-const POSITION:*const str = "POSITION";
-const NORMAL:*const str = "NORMAL";
-const TANGENT:*const str = "TANGENT";
-const COLOR:*const str = "COLOR";
-const TEXCOORD:*const str = "TEXCOORD";
-const JOINT:*const str = "JOINT";
-const WEIGHT:*const str = "WEIGHT";
 
 impl TsumuGPUFigureDataStore {
     ///3DデータをDirectX12用にロードするよ。TsumugiVertexBinaryが可変参照で必要だけど、これは変わらないよ。
@@ -62,106 +55,14 @@ impl TsumuGPUFigureDataStore {
             mapindexdata.copy_from_slice(&index);
             CpIndexResource.cp_unmap(0, &None);
             let TgIndexView: D3D12_INDEX_BUFFER_VIEW = D3D12_INDEX_BUFFER_VIEW {
-                BufferLocation: CpVertResource.tg_get_GPU_Virtal_Address(),
+                BufferLocation: CpIndexResource.tg_get_GPU_Virtal_Address(),
                 SizeInBytes: (index.len() * std::mem::size_of::<u32>()) as UINT,
                 Format: DXGI_FORMAT_R32_UINT,
             };
-            let mut inputElementDesc: Vec<D3D12_INPUT_ELEMENT_DESC> = Vec::with_capacity(attributes.0.len());
-            {
-                for attr in &attributes.0 {
-                    match attr {
-                        Attribute::Position => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: POSITION.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        Attribute::Normal => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: NORMAL.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        Attribute::Tangent => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: TANGENT.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        Attribute::Color(Color::RGBA_f32) => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: COLOR.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        Attribute::Texcoord(Texcoord::f32) => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: TEXCOORD.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R32G32_FLOAT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        Attribute::Joint(Joint::u16) => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: JOINT.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R16G16_UINT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        Attribute::Weight(Weight::f32) => {
-                            inputElementDesc.push(
-                                D3D12_INPUT_ELEMENT_DESC {
-                                    SemanticName: WEIGHT.cast(),
-                                    SemanticIndex: 0,
-                                    Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
-                                    InputSlot: 0,
-                                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                                    InstanceDataStepRate: 0,
-                                })
-                        }
-                        _ => { todo!("まだここはできてないよ") }
-                    }
-                }
-            }
             TsumuGPUFigureDataStore {
                 vertex_view: TgVertView,
                 index_view: TgIndexView,
-                input_element_desc: inputElementDesc,
+                index_len: index.len() as u32
             }
         }).collect()
         // let cp_d3d12_root_signature_desc: CpD3d12RootSignatureDesc = Default::default();

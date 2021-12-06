@@ -10,6 +10,8 @@ use std::task::{Context};
 use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use std::path::Path;
+use std::thread::sleep;
+use std::time::Duration;
 use tsumuDebugwin::spown_debug_window_handler;
 use tsumugi::antenna::{TsumugiAntenna};
 use tsumugi::distributor::TsumugiParcelDistributor;
@@ -55,6 +57,7 @@ impl Observer {
 
 impl TsumugiObject for ObjectA {
     fn on_create(&self, tc: &TsumugiController_threadlocal) {
+        sleep(Duration::new(0,100));
         dbg!(tc.tc.global_connect_tsumugi_controller.lock().unwrap().keys());
         self.sample_box_object.create3d_object(&tc.tc);
         self.shapell_object.create3d_object(&tc.tc);

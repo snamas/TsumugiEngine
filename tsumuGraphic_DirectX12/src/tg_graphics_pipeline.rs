@@ -6,33 +6,34 @@ use winapi::shared::minwindef::{FALSE, TRUE, UINT};
 use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_UNKNOWN};
 use tsumugiShaderStock::TsumugiShader;
 
+#[derive(Clone)]
 pub struct TgD3d12GraphicsPipeline(pub D3D12_GRAPHICS_PIPELINE_STATE_DESC);
 
 impl TgD3d12GraphicsPipeline {
-    pub fn VertexShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+    pub fn vertex_shader(mut self, tsumugi_shader:&TsumugiShader) ->Self{
         self.0.VS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
         self
     }
 
-    pub fn PixelShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+    pub fn pixel_shader(mut self, tsumugi_shader:&TsumugiShader) ->Self{
         self.0.PS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
         self
     }
 
-    pub fn DomainShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+    pub fn domain_shader(mut self, tsumugi_shader:&TsumugiShader) ->Self{
         self.0.DS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
         self
     }
-    pub fn HullShader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+    pub fn hull_shader(mut self, tsumugi_shader:&TsumugiShader) ->Self{
         self.0.HS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
         self
     }
-    pub fn Geometryhader(mut self, tsumugi_shader:&TsumugiShader)->Self{
+    pub fn geometry_shader(mut self, tsumugi_shader:&TsumugiShader) ->Self{
         self.0.HS = D3D12_SHADER_BYTECODE{ pShaderBytecode: tsumugi_shader.shader_pointer.as_ptr() as *const _, BytecodeLength:tsumugi_shader.shader_size };
         self
     }
-    pub fn InputLayout(mut self, inputelements:Vec<D3D12_INPUT_ELEMENT_DESC>)->Self{
-        self.0.InputLayout = D3D12_INPUT_LAYOUT_DESC{ pInputElementDescs: inputelements.as_ptr(), NumElements: inputelements.len() as UINT };
+    pub fn input_layout(mut self, inputelements:Vec<D3D12_INPUT_ELEMENT_DESC>) ->Self{
+        self.0.InputLayout = D3D12_INPUT_LAYOUT_DESC{ pInputElementDescs: inputelements.as_ptr(), NumElements: inputelements.len() as u32 };
         self
     }
 }

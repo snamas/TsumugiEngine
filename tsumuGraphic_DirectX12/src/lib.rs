@@ -38,7 +38,11 @@ use crate::tsumuGPUStoreList::TsumuGPUStoreList;
 
 static CONTROLLER_NAME: &str = "tsumuGraphicDx12";
 #[derive(Clone)]
-pub struct TsumuGraphicObject(TsumuGPUStoreList);
+pub struct TsumuGraphicObject {
+    directx_store: TsumuGPUStoreList,
+    pub(crate) tg_device :Arc<TgID3D12Device>
+}
+
 impl TsumuGraphicObject {
     fn receptHWND(&self,tc: &TsumugiController_threadlocal) {
         let thread_object_list = self.clone();
@@ -55,16 +59,17 @@ impl TsumuGraphicObject {
 }
 impl TsumugiObject for TsumuGraphicObject{
     fn on_create(&self, tc: &TsumugiController_threadlocal) {
-        self.0.fetch_figuredata(&tc.tc);
+        self.fetch_figuredata(&tc.tc);
+        self.fetch_materialdata(&tc.tc);
         self.receptHWND(tc);
-        self.0.debug_GPUStore(&tc.tc);
+        self.directx_store.debug_GPUStore(&tc.tc);
     }
 }
 
 pub fn spown_direct_x12_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
     let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
     newtc.set_objects(vec![
-        Box::new(TsumuGraphicObject(TsumuGPUStoreList{ list: Arc::new(Mutex::new(Default::default())), tg_device: Arc::new(TgID3D12Device::new()) })),
+        Box::new(TsumuGraphicObject { directx_store: TsumuGPUStoreList { list: Arc::new(Mutex::new(Default::default())) }, tg_device: Arc::new(TgID3D12Device::new()) }),
     ]);
     return newtc;
 }

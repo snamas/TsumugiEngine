@@ -88,17 +88,22 @@ impl SampleBox {
     fn new()->Self{
         SampleBox {
             material: TsumugiMaterial {
-                material_name: "SampleBoxMaterial",
+                figure_path: Path::new("Asset/Box.glb"),
                 shader_path_vs: TestShaderVS::load(),
                 shader_path_ps: TestShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: Material {
+                material: vec![Material {
                     texture: vec![],
                     buffer: Vec::new(),
-                    material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst)
-                }
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal
+                    ]
+                }],
+                material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst),
+                material_name: "SampleBoxMaterial",
             },
         }
     }
@@ -108,17 +113,22 @@ impl Default for SampleBox {
     fn default() -> Self {
         SampleBox {
             material: TsumugiMaterial {
-                material_name: "SampleBoxMaterial",
+                figure_path: Path::new("Asset/Box.glb"),
                 shader_path_vs: TestShaderVS::load(),
                 shader_path_ps: TestShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: Material {
+                material: vec![Material {
                     texture: vec![],
                     buffer: Vec::new(),
-                    material_element_id: 0
-                }
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal
+                    ]
+                }],
+                material_element_id: 0,
+                material_name: "SampleBoxMaterial",
             },
         }
     }

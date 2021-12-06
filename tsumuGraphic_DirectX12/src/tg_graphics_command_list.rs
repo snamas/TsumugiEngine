@@ -1,3 +1,5 @@
+use std::borrow::{Borrow, BorrowMut};
+use std::ops::Range;
 use std::ptr::null_mut;
 use winapi::shared::minwindef::UINT;
 use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_INDEX_BUFFER_VIEW, D3D12_PRIMITIVE_TOPOLOGY, D3D12_RECT, D3D12_RESOURCE_BARRIER, D3D12_VERTEX_BUFFER_VIEW, D3D12_VIEWPORT, ID3D12GraphicsCommandList, ID3D12PipelineState};
@@ -45,9 +47,9 @@ impl CpID3D12GraphicsCommandList {
         }
     }
 
-    pub fn cp_iaset_index_buffer(&self, d3d12_vertex_buffer_view: &Box<D3D12_INDEX_BUFFER_VIEW>) {
+    pub fn cp_iaset_index_buffer(&self, d3d12_vertex_buffer_view: &D3D12_INDEX_BUFFER_VIEW) {
         unsafe {
-            self.0.as_ref().unwrap().IASetIndexBuffer(d3d12_vertex_buffer_view.as_ref())
+            self.0.as_ref().unwrap().IASetIndexBuffer(d3d12_vertex_buffer_view)
         }
     }
 
@@ -108,5 +110,10 @@ impl  CommandLists {
         self.0.iter().zip(cp_id3d12command_allocator).map(|(commandlist,commandalloc)|{
             commandlist.cp_reset(commandalloc,p_initial_state_opt)
         }).collect::<Vec<_>>().to_result()
+    }
+    pub fn tg_omset_render_targets(&self,range:Range<usize>,d3d12_cpu_descriptor_handle: &Vec<D3D12_CPU_DESCRIPTOR_HANDLE>, rts_single_handle_to_descriptor_range: bool, p_depth_stencil_descriptor_opt: Option<&D3D12_CPU_DESCRIPTOR_HANDLE>){
+        self.0[range].iter().map(|command_list|{
+            command_list.cp_omset_render_targets(d3d12_cpu_descriptor_handle,rts_single_handle_to_descriptor_range,p_depth_stencil_descriptor_opt)
+        }).collect()
     }
 }

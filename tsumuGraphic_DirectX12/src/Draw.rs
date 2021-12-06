@@ -2,10 +2,10 @@ use std::io::Error;
 use std::ptr::null_mut;
 use std::thread;
 use winapi::Interface;
-use winapi::shared::dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB};
 use winapi::shared::minwindef::{TRUE, UINT};
 use winapi::shared::winerror::{HRESULT, NOERROR};
-use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12GetDebugInterface, ID3D12PipelineState};
+use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState};
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
 use tsugumi_windows_library::vector_Hresult;
@@ -26,7 +26,7 @@ impl TsumuGraphicObject {
         let mut thread_handle_window = arc_hwnd.clone();
         let tg_directx = self.clone();
         thread::spawn(move || {
-            let tg_device = tg_directx.0.tg_device;
+            let tg_device = tg_directx.tg_device;
             let tg_factory = CpIDXGIFactory6::new();
             let mut tg_command_queue = (*tg_device).cp_create_command_queue(None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             let tg_swapchain = tg_factory.cp_create_swap_chain_for_hwnd::<FrameCount>(&mut tg_command_queue, &mut thread_handle_window, None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
@@ -47,7 +47,7 @@ impl TsumuGraphicObject {
             let mut tg_resource_rendertarges = [tg_swapchain.cp_get_buffer(0).unwrap(), tg_swapchain.cp_get_buffer(1).unwrap()];
             for i in 0..FrameCount {
                 let view_desc = D3D12_RENDER_TARGET_VIEW_DESC {
-                    Format: DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+                    Format: DXGI_FORMAT_R8G8B8A8_UNORM,
                     ViewDimension: D3D12_RTV_DIMENSION_TEXTURE2D,
                     u: unsafe {
                         *std::mem::transmute::<&D3D12_TEX2D_RTV, &D3D12_RENDER_TARGET_VIEW_DESC_u>(&D3D12_TEX2D_RTV { MipSlice: 0, PlaneSlice: 0 })
@@ -61,6 +61,7 @@ impl TsumuGraphicObject {
             loop {
                 tg_command_allocators.iter().map(|alloc|{alloc.cp_reset()}).collect::<Vec<_>>();
                 tg_command_list.tg_reset(&mut tg_command_allocators, &mut None);
+                tg_command_list.tg_omset_render_targets(0..3,&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
                 let mut transition_barrier_desc = D3D12_RESOURCE_TRANSITION_BARRIER {
                     pResource: tg_resource_rendertarges[currentindex_usize].value,
                     Subresource: 0,
@@ -69,8 +70,9 @@ impl TsumuGraphicObject {
                 };
                 let barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
                 tg_command_list.0[0].cp_resource_barrier(&vec![barrier_desc]);
-                tg_command_list.0[1].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
-                tg_command_list.0[1].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 0., 1.], None);
+                tg_command_list.0[0].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 1., 1.], None);
+                tg_command_list.0[0].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
+                tg_directx.directx_store.draw_figures(&mut tg_command_list.0[1..2]);
 
                 transition_barrier_desc.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
                 transition_barrier_desc.StateAfter = D3D12_RESOURCE_STATE_PRESENT;

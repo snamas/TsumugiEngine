@@ -28,7 +28,13 @@ pub struct CpID3D12Fence {
 }
 pub struct CpID3DBlob(pub *const ID3DBlob);
 pub struct CpID3D12RootSignature(pub *mut ID3D12RootSignature);
+//まあ大丈夫でしょ
+unsafe impl Send for CpID3D12RootSignature {}
+unsafe impl Sync for CpID3D12RootSignature {}
 pub struct CpID3D12PipelineState(pub *mut ID3D12PipelineState);
+//まあ大丈夫でしょ
+unsafe impl Send for CpID3D12PipelineState {}
+unsafe impl Sync for CpID3D12PipelineState {}
 pub struct CpD3D12_RESOURCE_BARRIER(pub *mut D3D12_RESOURCE_BARRIER);
 pub struct CpEventW(*mut c_void);
 

@@ -6,18 +6,25 @@ use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, Tsumu
 use crate::test_shader_PS::TestShaderPS;
 use crate::test_shader_VS::TestShaderVS;
 
-const MaterialID:AtomicU64 = AtomicU64::new(1);
+const MaterialID: AtomicU64 = AtomicU64::new(0);
+
 #[derive(Clone)]
 pub struct Shapell {
-    pub material:TsumugiMaterial
+    pub material: TsumugiMaterial,
 }
+
+#[derive(Clone)]
+pub struct ShapellMaterial {
+    pub material: Vec<TsumugiMaterial>,
+}
+
 ///あとでbindgenみたいに自動生成できるように組む
 impl ObjectLoader for Shapell {
     fn load() -> Option<TsumugiVertexBinary> {
         let (document, buffers, images) = gltf::import(Path::new("Asset/shapell_Mtoon.vrm")).unwrap_or_else(|x| { panic!("{}", x) });
         let mut binarylist = Vec::new();
         let mut indexlist = Vec::new();
-        let mut attrlist = Vec::new();
+        let mut attrlist: Vec<(Vec<Attribute>, u32)> = Vec::new();
         for mesh in document.meshes() {
             for prim in mesh.primitives() {
                 let reader = prim.reader(|x| Some(&buffers[x.index()]));
@@ -28,13 +35,13 @@ impl ObjectLoader for Shapell {
                     let mut vertexes_texcoord0 = reader.read_tex_coords(0)?.into_f32();
                     for i in 0..vertexes_pos.len() {
                         let pos = vertexes_pos.next()?;
-                        let bin = unsafe{std::mem::transmute::<_,[u8;12]>(pos)};
+                        let bin = unsafe { std::mem::transmute::<_, [u8; 12]>(pos) };
                         //頂点情報
                         binary.append(&mut bin.to_vec());
                         //法線情報
-                        binary.append(&mut (unsafe{std::mem::transmute::<_,[u8;12]>(vertexes_normal.next()?)}).to_vec());
+                        binary.append(&mut (unsafe { std::mem::transmute::<_, [u8; 12]>(vertexes_normal.next()?) }).to_vec());
                         //UV座標情報
-                        binary.append(&mut (unsafe{std::mem::transmute::<_,[u8;8]>(vertexes_texcoord0.next()?)}).to_vec());
+                        binary.append(&mut (unsafe { std::mem::transmute::<_, [u8; 8]>(vertexes_texcoord0.next()?) }).to_vec());
                     }
                     //ここできっちりそろえておく
                     binary.shrink_to_fit();
@@ -45,12 +52,13 @@ impl ObjectLoader for Shapell {
                     index_binary.shrink_to_fit();
                     indexlist.push(index_binary);
                 }
+                //todo:ここ削る（頂点サイズは上ですでに分かっているので）
                 {
                     let attribute = vec![
                         tsumuFigureStockCPU::Attribute::Position,
                         tsumuFigureStockCPU::Attribute::Normal,
                         tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)];
-                    let mut vertexbytes = 0;
+                    let mut vertexbytes: u32 = 0;
                     for attr in &attribute {
                         match attr {
                             Attribute::Position => {
@@ -91,40 +99,53 @@ impl ObjectLoader for Shapell {
 }
 
 impl Shapell {
-    fn new()->Self{
+    ///マテリアルを新しく作る時は過去作ったものとかぶらないようにしよう
+    fn new() -> Self {
         Shapell {
             material: TsumugiMaterial {
-                material_name: "ShapellMaterial",
+                figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
                 shader_path_vs: TestShaderVS::load(),
                 shader_path_ps: TestShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: Material {
+                material: vec![Material {
                     texture: vec![],
                     buffer: Vec::new(),
-                    material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst)
-                }
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal,
+                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
+                    ]
+                }],
+                material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst),
+                material_name: "ShapellMaterial"
             },
         }
     }
 }
 
-impl Default for Shapell{
+impl Default for Shapell {
     fn default() -> Self {
         Shapell {
             material: TsumugiMaterial {
-                material_name: "ShapellMaterial",
+                figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
                 shader_path_vs: TestShaderVS::load(),
                 shader_path_ps: TestShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: Material{
+                material: vec![Material {
                     texture: vec![],
                     buffer: Vec::new(),
-                    material_element_id: 0
-                }
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal,
+                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
+                    ]
+                }],
+                material_element_id: 0,
+                material_name: "ShapellMaterial",
             },
         }
     }

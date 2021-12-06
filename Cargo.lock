@@ -775,6 +775,7 @@ dependencies = [
 name = "tsumugiShaderStock"
 version = "0.1.0"
 dependencies = [
+ "tsumuFigureStockCPU",
  "tsumugi",
 ]
 

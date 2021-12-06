@@ -3,8 +3,8 @@ use std::io::Read;
 use std::path::Path;
 use tsumugiShaderStock::TsumugiShader;
 
-static _shader: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/", "Asset/test_compiled_VS.cso"));
-const shader: &[u8] = include_bytes!("../Asset/test_compiled_VS.cso");
+static _shader: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/", "Asset/VertexShader.cso"));
+const shader: &[u8] = include_bytes!("../Asset/VertexShader.cso");
 
 #[derive(Clone)]
 pub struct TestShaderVS {
@@ -14,7 +14,7 @@ pub struct TestShaderVS {
 impl TestShaderVS {
     pub fn load()->TsumugiShader{
         TsumugiShader{
-            shader_path: Path::new("Asset/test_compiled_VS.cso"),
+            shader_path: Path::new("Asset/VertexShader.cso"),
             shader_size: shader.len(),
             shader_pointer: shader
         }

@@ -62,12 +62,12 @@ impl TsumguiWindow {
     }
     fn check_shader_list(&self, tc: &TsumugiController_threadlocal) {
         let mut thread_arc = self.shader_list.clone();
-        let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiShaderStockController>::new().subscribe(Arc::new(move |parcel| {
+        let object_antenna = TsumugiParcelReceptorNoVal::<TsumugiShaderStockController>::new().subscribe(Arc::new(move |parcel| {
             let recept = parcel.parcel.clone().unwrap();
             *thread_arc.write().unwrap() = *recept;
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("check_shader_store").lifetime(TsumugiControllerItemLifeTime::Once);
-        tc.tc.find("TsumugiStockShader").unwrap().recept_channel_sender.send(Object_antenna.into());
+        tc.tc.find("TsumugiStockMaterials").unwrap().recept_channel_sender.send(object_antenna.into());
     }
     fn check_gpu_store_list(&self, tc: &TsumugiController_threadlocal) {
         let mut thread_arc = self.gpu_store_list.clone();
@@ -220,7 +220,6 @@ impl TsumugiObject for TsumguiWindow {
                 window.gl_swap_window();
             }
         });
-
     }
 }
 

@@ -73,8 +73,8 @@ impl TwHWND {
         let mut window_rc = match window_rc_opt {
             Some(v) => { v }
             None => {
-                const WINDOW_WIDTH: u32 = 720;
-                const WINDOW_HEIGHT: u32 = 480;
+                const WINDOW_WIDTH: u32 = 1280;
+                const WINDOW_HEIGHT: u32 = 720;
                 RECT { left: 0, top: 0, right: WINDOW_WIDTH as i32, bottom: WINDOW_HEIGHT as i32 }
             }
         };
