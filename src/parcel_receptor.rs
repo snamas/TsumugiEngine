@@ -1,16 +1,16 @@
 use crate::antenna::{TsumugiFuture, TsumugiParcelInput, TsumugiAntenna};
 use std::sync::Arc;
 use std::any::Any;
-use crate::controller::{TsumugiController_threadlocal, TsumugiControllerItemState};
+use crate::controller::{TsumugiPortalPlaneLocal, TsumugiControllerItemState};
 
 #[derive(Clone)]
 pub struct TsumugiParcelReceptor<T: Send + Clone> {
     pub parcel: Box<T>,
-    pub subscribe: Option<Arc<dyn Fn(&TsumugiParcelReceptor<T>, &TsumugiController_threadlocal) -> TsumugiControllerItemState + Send + Sync>>,
+    pub subscribe: Option<Arc<dyn Fn(&TsumugiParcelReceptor<T>, &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState + Send + Sync>>,
 }
 
 impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptor<T> {
-    fn poll(self: &mut Self, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState {
+    fn poll(self: &mut Self, tct: &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState {
         if let Some(subscribe) = &self.subscribe {
             return subscribe.as_ref()(&self, tct);
         }
@@ -28,7 +28,7 @@ impl<T: 'static + Send + Clone> TsumugiParcelReceptor<T> {
         }));
         self
     }
-    pub fn subscribe_tc(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptor<T>, &TsumugiController_threadlocal) -> TsumugiControllerItemState + Send + Sync>) -> Self {
+    pub fn subscribe_tc(mut self, func: Arc<dyn Fn(&TsumugiParcelReceptor<T>, &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState + Send + Sync>) -> Self {
         self.subscribe = Some(func);
         self
     }
@@ -38,7 +38,7 @@ impl<T: 'static + Send + Clone> TsumugiParcelReceptor<T> {
 }
 
 impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptor<T> {
-    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState {
+    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState {
         let movaditem = (*input_item).downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)
