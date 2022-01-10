@@ -3,7 +3,7 @@ use crate::antenna::{TsumugiAntenna, TsumugiParcelInput};
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver};
 use crate::antenna_chain::TsumugiSpownReceiver;
-use crate::controller::{TsumugiController_threadlocal, TsumugiControllerItemState};
+use crate::controller::{TsumugiPortalPlaneLocal, TsumugiControllerItemState};
 
 #[derive(Clone)]
 pub struct TsumugiParcelReceptorWithChannel<S: Send + Clone> {
@@ -13,7 +13,7 @@ pub struct TsumugiParcelReceptorWithChannel<S: Send + Clone> {
 }
 
 impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorWithChannel<T> {
-    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState {
+    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState {
         let movaditem = (*input_item).downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)

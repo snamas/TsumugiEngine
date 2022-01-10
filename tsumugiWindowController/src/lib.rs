@@ -15,7 +15,7 @@ use winapi::um::wingdi::TextOutW;
 use winapi::um::winuser::{FindWindowExW, FindWindowW, GetDC, InvalidateRect, PM_REMOVE, ReleaseDC, SW_SHOW, VK_CONTROL};
 use tsugumi_windows_library::wide_char;
 use tsumugi::antenna_chain::{TsumugiAntennaType, TsumugiReceptorChain};
-use tsumugi::controller::{TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::distributor::TsumugiDistributor;
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
@@ -34,10 +34,10 @@ struct TsumugiWindowObject();
 static COUNT: AtomicU64 = AtomicU64::new(0);
 
 impl TsumugiObject for TsumugiWindowObject {
-    fn on_create(&self, tc: &TsumugiController_threadlocal) {
-        let mut globalsender = tc.tc.global_channel_sender.pickup_channel_sender.clone();
-        let mut globalreceptor = tc.tc.global_channel_sender.recept_channel_sender.clone();
-        let mut localsender = tc.tc.local_channel_sender.pickup_channel_sender.clone();
+    fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
+        let mut globalsender = tc.tp.global_channel_sender.pickup_channel_sender.clone();
+        let mut globalreceptor = tc.tp.global_channel_sender.recept_channel_sender.clone();
+        let mut localsender = tc.tp.local_channel_sender.pickup_channel_sender.clone();
         thread::spawn(move || {
             let mut window_handle = TwHWND::new(None, None);
             let mut arc_handle = Arc::new(Mutex::new(window_handle));
@@ -65,7 +65,7 @@ impl TsumugiObject for TsumugiWindowObject {
     }
 }
 
-pub fn spown_window_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
+pub fn spown_window_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
     let mut newtc = tc.spown("tsumugiWindowHandle".to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiWindowObject()),

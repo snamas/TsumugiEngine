@@ -1,7 +1,7 @@
 use std::sync::{Mutex, Arc};
 use crate::antenna::{TsumugiAntenna, TsumugiParcelInput, TsumugiFuture};
 use std::any::{TypeId, Any};
-use crate::controller::{TsumugiController_threadlocal, TsumugiControllerItemState};
+use crate::controller::{TsumugiPortalPlaneLocal, TsumugiControllerItemState};
 
 #[derive(Clone)]
 pub struct TsumugiParcelReceptorReturnValue<T: Send + Clone> {
@@ -22,7 +22,7 @@ impl<T: 'static + Send + Clone + Sync> TsumugiAntennaTraitWithValue<T> for Tsumu
 }
 
 impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptorReturnValue<T> {
-    fn poll(self: &mut Self, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState {
+    fn poll(self: &mut Self, tct: &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState {
         if let Some(fnc) = self.on_change.as_ref() {
             return fnc.as_ref()(&self);
         }
@@ -31,7 +31,7 @@ impl<T: Send + Clone> TsumugiFuture for TsumugiParcelReceptorReturnValue<T> {
 }
 
 impl<T: 'static + Send + Clone> TsumugiParcelInput for TsumugiParcelReceptorReturnValue<T> {
-    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiController_threadlocal) -> TsumugiControllerItemState {
+    fn input_item(&mut self, input_item: &mut Box<dyn Any + Send>, tct: &TsumugiPortalPlaneLocal) -> TsumugiControllerItemState {
         let movaditem = (*input_item).downcast_mut::<T>().unwrap();
         let mut receive_item = unsafe {
             Box::from_raw(movaditem)

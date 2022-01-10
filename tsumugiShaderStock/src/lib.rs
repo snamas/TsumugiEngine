@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tsumuFigureStockCPU::Attribute;
-use tsumugi::controller::{TsumugiController, TsumugiController_threadlocal, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerTrait, TsumugiObject};
 use tsumugi::controller::TsumugiControllerItemLifeTime::{Eternal, Once};
 use tsumugi::controller::TsumugiControllerItemState::Fulfilled;
 use tsumugi::distributor::TsumugiParcelDistributor;
@@ -53,7 +53,7 @@ pub struct TsumugiShader {
 pub struct TsumugiShaderStockController(pub Arc<Mutex<HashMap<&'static str, HashMap<&'static Path,TsumugiMaterial>>>>);
 
 impl TsumugiMaterial {
-    pub fn store_material(&self,tc:&TsumugiController){
+    pub fn store_material(&self,tc:&TsumugiPortal){
         let material_dist = TsumugiParcelDistributor::new(self.clone()).lifetime(Once).displayname("material_list");
         tc.find(TSUMUGI_STOCK_MATERIAL_NAME).unwrap().pickup_channel_sender.send(material_dist.into());
     }
@@ -65,9 +65,9 @@ impl Default for TsumugiShaderStockController {
     }
 }
 impl TsumugiObject for TsumugiShaderStockController {
-    fn on_create(&self, tc: &TsumugiController_threadlocal) {
+    fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
         let mut shaderList = self.0.clone();
-        let antenna = TsumugiParcelReceptorNoVal::<TsumugiMaterial>::new().subscribe_tc(Arc::new(move |parcel,tc|{
+        let antenna = TsumugiParcelReceptorNoVal::<TsumugiMaterial>::new().subscribe_with_portal(Arc::new(move |parcel, tc|{
             let parcel = parcel.parcel.clone().unwrap();
             //ここマテリアルの転換が必要か
             let name = parcel.material_name;
@@ -76,15 +76,15 @@ impl TsumugiObject for TsumugiShaderStockController {
             //todo:ここマテリアルをこのPlaneに置く必要がまるでなくなってしまったよ
             shaderList.lock().unwrap().entry(name).or_insert(HashMap::new()).insert(path,material.clone());
             //マテリアルをそのままクローンして送ると、アンテナに引っかかってまたマテリアルがクローンされるループに引っかかってしまった。
-            tc.tc.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(material.clone()).lifetime(Once).parcelname("re_material").displayname("material").into());
+            tc.tp.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(material.clone()).lifetime(Once).parcelname("re_material").displayname("material").into());
             Fulfilled
         })).to_antenna().displayname("recept_material").lifetime(Eternal);
-        tc.tc.local_channel_sender.recept_channel_sender.send(antenna.into());
-        tc.tc.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(self.clone()).lifetime(Eternal).displayname("TsumugiShaderController").into());
+        tc.tp.local_channel_sender.recept_channel_sender.send(antenna.into());
+        tc.tp.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(self.clone()).lifetime(Eternal).displayname("TsumugiShaderController").into());
 
     }
 }
-pub fn spown_shader_stock_handler(tc:&Box<TsumugiController>) -> Box<TsumugiController>{
+pub fn spown_shader_stock_handler(tc:&Box<TsumugiPortal>) -> Box<TsumugiPortal>{
     let mut newtc = tc.spown(TSUMUGI_STOCK_MATERIAL_NAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiShaderStockController::default()),

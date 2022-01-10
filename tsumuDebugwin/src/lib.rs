@@ -9,7 +9,7 @@ use imgui::{Condition, Ui};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use tsumugi::controller::{DebugKit, TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{DebugKit, TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
 use imgui_sdl2_support;
 use imgui_glow_renderer;
 use glow;
@@ -42,43 +42,43 @@ fn glow_context(window: &Window) -> glow::Context {
 }
 
 impl TsumguiWindow {
-    fn check_object_list(&self, tc: &TsumugiController_threadlocal) {
+    fn check_object_list(&self, tc: &TsumugiPortalPlaneLocal) {
         let mut thread_arc = self.objectlist.clone();
         let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiObjectController>::new().subscribe(Arc::new(move |parcel| {
             let recept = parcel.parcel.as_ref().unwrap().object_hashmap.clone();
             *thread_arc.write().unwrap() = recept;
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("check_object").lifetime(TsumugiControllerItemLifeTime::Once);
-        tc.tc.find("tsumugi3dObject").unwrap().recept_channel_sender.send(Object_antenna.into());
+        tc.tp.find("tsumugi3dObject").unwrap().recept_channel_sender.send(Object_antenna.into());
     }
-    fn check_store_list(&self, tc: &TsumugiController_threadlocal) {
+    fn check_store_list(&self, tc: &TsumugiPortalPlaneLocal) {
         let mut thread_arc = self.cpu_store_list.clone();
         let Object_antenna = TsumugiParcelReceptorNoVal::<TsumugiStockController>::new().subscribe(Arc::new(move |parcel| {
             let recept = parcel.parcel.clone().unwrap();
             *thread_arc.write().unwrap() = recept;
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("check_store").lifetime(TsumugiControllerItemLifeTime::Once);
-        tc.tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(Object_antenna.into());
+        tc.tp.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(Object_antenna.into());
     }
-    fn check_shader_list(&self, tc: &TsumugiController_threadlocal) {
+    fn check_shader_list(&self, tc: &TsumugiPortalPlaneLocal) {
         let mut thread_arc = self.shader_list.clone();
         let object_antenna = TsumugiParcelReceptorNoVal::<TsumugiShaderStockController>::new().subscribe(Arc::new(move |parcel| {
             let recept = parcel.parcel.clone().unwrap();
             *thread_arc.write().unwrap() = *recept;
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("check_shader_store").lifetime(TsumugiControllerItemLifeTime::Once);
-        tc.tc.find("TsumugiStockMaterials").unwrap().recept_channel_sender.send(object_antenna.into());
+        tc.tp.find("TsumugiStockMaterials").unwrap().recept_channel_sender.send(object_antenna.into());
     }
-    fn check_gpu_store_list(&self, tc: &TsumugiController_threadlocal) {
+    fn check_gpu_store_list(&self, tc: &TsumugiPortalPlaneLocal) {
         let mut thread_arc = self.gpu_store_list.clone();
         let Object_antenna = TsumugiParcelReceptorNoVal::<Arc<Mutex<HashMap<&'static Path,FigureDataLayer>>>>::new().subscribe(Arc::new(move |parcel| {
             let recept = *parcel.parcel.clone().unwrap();
             *thread_arc.write().unwrap() = recept;
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("check_gpu_store").lifetime(TsumugiControllerItemLifeTime::Once);
-        tc.tc.find("tsumuGraphicDx12").unwrap().recept_channel_sender.send(Object_antenna.into());
+        tc.tp.find("tsumuGraphicDx12").unwrap().recept_channel_sender.send(Object_antenna.into());
     }
-    fn check_debug_list(&self, tc: &TsumugiController_threadlocal){
+    fn check_debug_list(&self, tc: &TsumugiPortalPlaneLocal){
         let mut thread_arc = self.debug_list.clone();
         let antenna = TsumugiParcelReceptorNoVal::<DebugKit>::new().subscribe(Arc::new(move |parcel|{
             let plane_name = parcel.parcel.clone().unwrap().plane_name;
@@ -86,12 +86,12 @@ impl TsumguiWindow {
             thread_arc.lock().unwrap().insert(plane_name, *debug.clone());
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().lifetime(TsumugiControllerItemLifeTime::Eternal);
-        tc.tc.local_channel_sender.recept_channel_sender.send(antenna.into());
+        tc.tp.local_channel_sender.recept_channel_sender.send(antenna.into());
     }
 }
 
 impl TsumugiObject for TsumguiWindow {
-    fn on_create(&self, tc: &TsumugiController_threadlocal) {
+    fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
         self.check_object_list(tc);
         self.check_store_list(tc);
         self.check_shader_list(tc);
@@ -147,56 +147,37 @@ impl TsumugiObject for TsumguiWindow {
                 platform.prepare_frame(&mut imgui, &window, &event_pump);
 
                 let ui = imgui.new_frame();
-                if let Some(_t) = ui.tree_node("ObjectList") {
-                    ui.child_window("ObjectList")
-                        .size([0.0, 60.0])
-                        .border(true)
-                        .build(|| {
-                            for object in thread_objectlist.read().unwrap().lock().unwrap().iter() {
-                                ui.text(format!("Object Name:{}", object.1.name));
-                            }
-                        });
-                }
-                if let Some(_t) = ui.tree_node("CPUStoreList") {
-                    ui.child_window("CPUStoreList")
-                        .size([0.0, 60.0])
-                        .border(true)
-                        .build(|| {
-                            for object in thread_cpu_store_list.read().unwrap().0.lock().unwrap().keys() {
-                                ui.text(format!("Object Name:{}", object.to_str().unwrap()));
-                            }
-                        });
-                }
-                if let Some(_t) = ui.tree_node("MaterialStoreList") {
-                    ui.child_window("MaterialStoreList")
-                        .size([0.0, 60.0])
-                        .border(true)
-                        .build(|| {
-                            for object in thread_shader_store_list.read().unwrap().0.lock().unwrap().keys() {
-                                ui.text(format!("Object Name:{}", object));
-                            }
-                        });
-                }
-                if let Some(_t) = ui.tree_node("GPUStoreList") {
-                    ui.child_window("GPUStoreList")
-                        .size([0.0, 60.0])
-                        .border(true)
-                        .build(|| {
-                            for object in thread_gpu_store_list.read().unwrap().lock().unwrap().iter() {
-                                ui.text(format!("Object Name:{}", object.0.to_str().unwrap()));
-                            }
-                        });
-                }
-                if let Some(_t) = ui.tree_node("Debug") {
+                ui.show_demo_window(&mut true);
+                ui.window("ObjectList").size([300f32,200f32],Condition::FirstUseEver).position([100f32,100f32],Condition::FirstUseEver).build(||{
+                    for object in thread_objectlist.read().unwrap().lock().unwrap().iter() {
+                        ui.text(format!("Object Name:{}", object.1.name));
+                    }
+                });
+                ui.window("CPUStoreList").size([300f32,200f32],Condition::FirstUseEver).position([300f32,100f32],Condition::FirstUseEver).build(||{
+                    for object in thread_cpu_store_list.read().unwrap().0.lock().unwrap().keys() {
+                        ui.text(format!("Object Name:{}", object.to_str().unwrap()));
+                    }
+                });
+                ui.window("MaterialStoreList").size([300f32,200f32],Condition::FirstUseEver).position([500f32,100f32],Condition::FirstUseEver).build(||{
+                    for object in thread_shader_store_list.read().unwrap().0.lock().unwrap().keys() {
+                        ui.text(format!("Object Name:{}", object));
+                    }
+                });
+                ui.window("GPUStoreList").size([300f32,200f32],Condition::FirstUseEver).position([500f32,300f32],Condition::FirstUseEver).build(||{
+                    for object in thread_gpu_store_list.read().unwrap().lock().unwrap().iter() {
+                        ui.text(format!("Object Name:{}", object.0.to_str().unwrap()));
+                    }
+                });
+                ui.window("Debug").size([300f32,700f32],Condition::FirstUseEver).position([100f32,300f32],Condition::FirstUseEver).build(||{
                     for debugkit in thread_debug_list.lock().unwrap().iter(){
-                        if let Some(_t) = ui.tree_node(debugkit.0){
+                        ui.tree_node_config(debugkit.0).default_open(true).build(||{
                             if let Some(_t) = ui.tree_node("recept"){
                                 ui.child_window(debugkit.0)
                                     .size([0.0, 60.0])
                                     .border(true)
                                     .build(|| {
                                         for object in &debugkit.1.parcel.recept_list {
-                                            ui.text(format!("TypeID:{:?},Name:{}", object.0,object.1));
+                                            ui.text(format!("TypeID:{:?},Display:{}", object.0,object.1));
                                         }
                                     });
                             }
@@ -206,14 +187,34 @@ impl TsumugiObject for TsumguiWindow {
                                     .border(true)
                                     .build(|| {
                                         for object in &debugkit.1.parcel.pickup_list {
-                                            ui.text(format!("TypeID:{:?},Name:{}", object.0,object.1));
+                                            ui.text(format!("TypeID:{:?},Display:{}", object.0,object.1));
                                         }
                                     });
                             }
-                        }
+                            if let Some(_t) = ui.tree_node("nemad_recept"){
+                                ui.child_window(debugkit.0)
+                                    .size([0.0, 60.0])
+                                    .border(true)
+                                    .build(|| {
+                                        for object in &debugkit.1.named_parcel.recept_list {
+                                            ui.text(format!("TypeID:{:?},Name:{},Display:{}", object.0,object.1,object.2));
+                                        }
+                                    });
+                            }
+                            if let Some(_t) = ui.tree_node("nemad_pickup"){
+                                ui.child_window(debugkit.0)
+                                    .size([0.0, 60.0])
+                                    .border(true)
+                                    .build(|| {
+                                        for object in &debugkit.1.named_parcel.pickup_list {
+                                            ui.text(format!("TypeID:{:?},Name:{},Display:{}", object.0,object.1,object.2));
+                                        }
+                                    });
+                            }
+
+                        });
                     }
-                }
-                ui.show_demo_window(&mut true);
+                });
                 let draw_data = imgui.render();
                 unsafe { renderer.gl_context().clear(glow::COLOR_BUFFER_BIT) };
                 renderer.render(draw_data).unwrap();
@@ -224,7 +225,7 @@ impl TsumugiObject for TsumguiWindow {
 }
 
 
-pub fn spown_debug_window_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
+pub fn spown_debug_window_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
     let mut newtc = tc.spown(TSUMUGI_DEBUG_WINDOWS.to_string());
     newtc.set_objects(vec![
         Box::new(TsumguiWindow {

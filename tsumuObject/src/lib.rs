@@ -1,3 +1,5 @@
+mod camera;
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
@@ -5,12 +7,13 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::atomic::Ordering::SeqCst;
 use nalgebra::{Point, Point2, Point3};
 use tsumuFigureStockCPU::TsumugiVertexBinary;
-use tsumugi::controller::{TsumugiController, TsumugiController_threadlocal, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject, TsumugiControllerItemLifeTime};
 use tsumugi::controller::TsumugiControllerItemLifeTime::Eternal;
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumuFigureStockCPU::{TsumugiStock};
+use crate::camera::Camera;
 
 static CONTROLLER_NAME: &str = "tsumugi3dObject";
 ///ObjectKeyはオブジェクト固有の番号。すべてのオブジェクト更新にはこの鍵が必要
@@ -40,6 +43,9 @@ pub struct Tsumugi3DObject {
     pub name: &'static str,
     pub figure_data_path: &'static Path,
     object_load_function: fn() -> Option<TsumugiVertexBinary>,
+    ///マテリアルの名前。
+    pub material_name: &'static str,
+    material_element_id: u64,
 }
 
 #[derive(Clone)]
@@ -71,10 +77,10 @@ impl TsumugiObjectController {
     }
 }
 
-///外部使用想定
+///外部使用想定の構造体、オブジェクトを管理するよ
 impl Tsumugi3DObject {
     ///新しく作るよ
-    pub fn new(name: &'static str, path: &'static Path, object_load_function: fn() -> Option<TsumugiVertexBinary>) -> Self {
+    pub fn new(name: &'static str, path: &'static Path,material:&'static str, object_load_function: fn() -> Option<TsumugiVertexBinary>) -> Self {
         Tsumugi3DObject {
             position: Point3::new(0.0, 0.0, 0.0),
             rotate: Point2::new(0.0, 0.0),
@@ -82,10 +88,12 @@ impl Tsumugi3DObject {
             name,
             figure_data_path: path,
             object_load_function: object_load_function,
+            material_name: material,
+            material_element_id: 0
         }
     }
-    ///tsumugi3dObjectプレーンに送るよ
-    pub fn create3d_object(&self, tc: &TsumugiController) -> ObjectKey {
+    ///tsumugi3dObjectプレーンに送るよ。今後updateで使う鍵が返ってくるよ
+    pub fn create3d_object(&self, tc: &TsumugiPortal) -> ObjectKey {
         let mut tsumugi3dobject_parcel = Tsumugi3DObjectParcel {
             tsumugi3dobject: self.clone(),
             object_key: ObjectKey(Arc::new(RwLock::new(None))),
@@ -100,11 +108,11 @@ impl Tsumugi3DObject {
         tc.find(CONTROLLER_NAME).unwrap().pickup_channel_sender.send(p_dist.into());
         duplicate_key
     }
-    ///tsumugi3dObjectプレーンの値を変えるよ。今のところ準備中
-    pub fn update3d_object(self, tc: &TsumugiController, object_key: ObjectKey) -> bool {
+    ///tsumugi3dObjectプレーンの値を変えるよ。
+    pub fn update3d_object(&self, tc: &TsumugiPortal, object_key: ObjectKey) -> bool {
         if object_key.0.read().unwrap().is_some() {
             let tsumugi3dobject_parcel = Tsumugi3DObjectParcel {
-                tsumugi3dobject: self,
+                tsumugi3dobject: self.clone(),
                 object_key: object_key,
                 tsumugi3dobject_action: Tsumugi3DObjectAction::Update,
             };
@@ -114,30 +122,59 @@ impl Tsumugi3DObject {
         }
         return false;
     }
-}
-
-impl TsumugiObject for TsumugiObjectController {
-    fn on_create(&self, tc: &TsumugiController_threadlocal) {
-        let mut object_hashmap = self.clone();
-        let recept_object = TsumugiParcelReceptorNoVal::<Tsumugi3DObjectParcel>::new()
-            .subscribe(Arc::new(move |object| {
-                ///受け取ったオブジェクトを格納するよ。
-                ///その後、そのオブジェクトの管理番号を返すよ。
-                let objectClone = object.parcel.clone().unwrap();
-                let object_key_distribution = object_hashmap.insert(objectClone.tsumugi3dobject.clone());
-                objectClone.object_key.0.write().unwrap().replace(object_key_distribution);
-                TsumugiControllerItemState::Fulfilled
-            })).to_antenna().displayname("recept_object");
-        tc.tc.local_channel_sender.recept_channel_sender.send(recept_object.into());
-        let dist_object = TsumugiParcelDistributor::new(self.clone()).displayname("object_distributor").lifetime(Eternal);
-        tc.tc.local_channel_sender.pickup_channel_sender.send(dist_object.into());
+    ///tsumugi3dObjectを消すよ。準備中
+    pub fn delete3d_object(&self){
+        todo!("あとで実装するよ")
     }
 }
 
-pub fn spown_3d_object_handler(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
+impl TsumugiObject for TsumugiObjectController {
+    fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
+        let mut object_hashmap = self.clone();
+        let recept_object = TsumugiParcelReceptorNoVal::<Tsumugi3DObjectParcel>::new()
+            .subscribe_with_portal(Arc::new(move |object, tp| {
+                let object = object.parcel.clone().unwrap();
+                match &object.tsumugi3dobject_action {
+                    Tsumugi3DObjectAction::Crate => {
+                        ///受け取ったオブジェクトを格納するよ。
+                        ///その後、そのオブジェクトの管理番号を返すよ。
+                        let object_key_distribution = object_hashmap.insert(object.tsumugi3dobject);
+                        object.object_key.0.write().unwrap().replace(object_key_distribution);
+                        tp.tp.local_channel_sender.pickup_channel_sender
+                            .send(TsumugiParcelDistributor::new(object_key_distribution)
+                                .displayname("Object_Spown!")
+                                .lifetime(TsumugiControllerItemLifeTime::Once)
+                                .parcelname("object_key")
+                                .into());
+                    }
+                    Tsumugi3DObjectAction::Update => {
+                        if let Some(key) = *object.object_key.0.read().unwrap(){
+                            object_hashmap.update(object.tsumugi3dobject,key);
+                            tp.tp.local_channel_sender.pickup_channel_sender
+                                .send(TsumugiParcelDistributor::new(key)
+                                    .displayname("Object_Spown!")
+                                    .lifetime(TsumugiControllerItemLifeTime::Once)
+                                    .parcelname("object_key")
+                                    .into());
+                        }
+                    }
+                    Tsumugi3DObjectAction::Delete => {
+                        todo!("ここはまだ出来てないよ")
+                    }
+                }
+                TsumugiControllerItemState::Fulfilled
+            })).to_antenna().displayname("recept_object");
+        tc.tp.local_channel_sender.recept_channel_sender.send(recept_object.into());
+        let dist_object = TsumugiParcelDistributor::new(self.clone()).displayname("object_distributor").lifetime(Eternal);
+        tc.tp.local_channel_sender.pickup_channel_sender.send(dist_object.into());
+    }
+}
+
+pub fn spown_3d_object_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
     let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiObjectController { object_hashmap: Default::default(), object_key_origin: Arc::new(AtomicU64::new(0)) }),
+        Box::new(Camera::new())
     ]);
     return newtc;
 }

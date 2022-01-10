@@ -5,12 +5,13 @@ use winapi::Interface;
 use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB};
 use winapi::shared::minwindef::{TRUE, UINT};
 use winapi::shared::winerror::{HRESULT, NOERROR};
-use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState};
+use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState};
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
 use tsugumi_windows_library::vector_Hresult;
-use tsumugi::controller::TsumugiController_threadlocal;
+use tsumugi::controller::TsumugiPortalPlaneLocal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
+use crate::tg_descriptor_controller::{TgD3d12DescriptorHeapDesc, TgID3D12DescriptorHeapList};
 use crate::tg_device::TgID3D12Device;
 use crate::tg_directx::{CpD3D12_RESOURCE_BARRIER, CpEventW, CpID3D12CommandAllocator};
 use crate::tg_directx::CpD3d12ResourceBarrierDescType::CpD3d12ResourceTransitionBarrier;
@@ -18,18 +19,48 @@ use crate::tg_dxgi_factory::CpIDXGIFactory6;
 use crate::tg_graphics_command_list::{CommandLists, CpID3D12GraphicsCommandList};
 use crate::TsumuGraphicObject;
 
-const FrameCount: usize = 2;
+const FRAME_COUNT: usize = 2;
 
 impl TsumuGraphicObject {
-    pub fn draw_window(&self,arc_hwnd: &Box<ArcHWND>, tc: &TsumugiController_threadlocal) {
+    pub fn draw_window(&self,arc_hwnd: &Box<ArcHWND>, tc: &TsumugiPortalPlaneLocal) {
         let a = [1,2].iter().map(|v|{v});
         let mut thread_handle_window = arc_hwnd.clone();
         let tg_directx = self.clone();
+        let mut tg_descriptor_rtv = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_RTV>(TgD3d12DescriptorHeapDesc {
+            dynamic_descriptors: 2,
+            static_descriptors: 0,
+            flags: D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+            node_mask: 0
+        }).unwrap();
+        let mut tg_descriptor_cbv_srv_uav = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>(TgD3d12DescriptorHeapDesc {
+            dynamic_descriptors: 512,
+            static_descriptors: 512,
+            flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+            node_mask: 0
+        }).unwrap();
+        let mut tg_descriptor_sampler = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER>(TgD3d12DescriptorHeapDesc {
+            dynamic_descriptors: 512,
+            static_descriptors: 512,
+            flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+            node_mask: 0
+        }).unwrap();
+        let mut tg_descriptor_dsv = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_DSV>(TgD3d12DescriptorHeapDesc {
+            dynamic_descriptors: 512,
+            static_descriptors: 512,
+            flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+            node_mask: 0
+        }).unwrap();
+        let mut tg_id3d12descriptor_heap_list = TgID3D12DescriptorHeapList{
+            cbv_srv_uav: tg_descriptor_cbv_srv_uav,
+            sampler: tg_descriptor_sampler,
+            rtv: tg_descriptor_rtv.clone(),
+            dsv: tg_descriptor_dsv
+        };
         thread::spawn(move || {
             let tg_device = tg_directx.tg_device;
             let tg_factory = CpIDXGIFactory6::new();
             let mut tg_command_queue = (*tg_device).cp_create_command_queue(None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
-            let tg_swapchain = tg_factory.cp_create_swap_chain_for_hwnd::<FrameCount>(&mut tg_command_queue, &mut thread_handle_window, None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
+            let tg_swapchain = tg_factory.cp_create_swap_chain_for_hwnd::<FRAME_COUNT>(&mut tg_command_queue, &mut thread_handle_window, None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             drop(thread_handle_window);
             let mut currentindex = tg_swapchain.cp_get_current_back_buffer_index();
             let mut currentindex_usize = currentindex as usize;
@@ -37,15 +68,9 @@ impl TsumuGraphicObject {
             //Command ListをReset()するとき、バインドするCommand Allocatorを前のCommand Allocatorと別のものに変えることができます。(https://shobomaru.wordpress.com/2015/04/20/d3d12-command/)
             let tg_command_list = tg_device.cp_create_command_lists(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &mut tg_command_allocators, &mut None).unwrap();
             let mut tg_command_list = CommandLists(Vec::from(tg_command_list));
-            let mut tg_descriptor_rtv = tg_device.cp_create_descriptor_heap(D3D12_DESCRIPTOR_HEAP_DESC {
-                Type: D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                NumDescriptors: FrameCount as UINT,
-                Flags: D3D12_HEAP_FLAG_NONE,
-                NodeMask: 0,
-            }).unwrap();
-            let mut tg_handle_rtvs = tg_descriptor_rtv.allocate_descriptor_handles::<FrameCount>().unwrap();
+            let mut tg_handle_rtvs = tg_descriptor_rtv.allocate_dynamic_descriptor_handles::<FRAME_COUNT>().unwrap();
             let mut tg_resource_rendertarges = [tg_swapchain.cp_get_buffer(0).unwrap(), tg_swapchain.cp_get_buffer(1).unwrap()];
-            for i in 0..FrameCount {
+            for i in 0..FRAME_COUNT {
                 let view_desc = D3D12_RENDER_TARGET_VIEW_DESC {
                     Format: DXGI_FORMAT_R8G8B8A8_UNORM,
                     ViewDimension: D3D12_RTV_DIMENSION_TEXTURE2D,

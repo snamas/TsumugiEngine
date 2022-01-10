@@ -15,7 +15,7 @@ use std::time::Duration;
 use tsumuDebugwin::spown_debug_window_handler;
 use tsumugi::antenna::{TsumugiAntenna};
 use tsumugi::distributor::TsumugiParcelDistributor;
-use tsumugi::controller::{TsumugiChannelSenders, TsumugiController, TsumugiObject, TsumugiControllerTrait, TsumugiControllerItemState, TsumugiControllerItemLifeTime, TsumugiController_threadlocal};
+use tsumugi::controller::{TsumugiChannelSenders, TsumugiPortal, TsumugiObject, TsumugiControllerTrait, TsumugiControllerItemState, TsumugiControllerItemLifeTime, TsumugiPortalPlaneLocal};
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumugiKeyboardInput::spown_windows_key_controller;
 use tsumugi::signal::TsumugiSignal;
@@ -56,17 +56,17 @@ impl Observer {
 }
 
 impl TsumugiObject for ObjectA {
-    fn on_create(&self, tc: &TsumugiController_threadlocal) {
+    fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
         sleep(Duration::new(0,100));
-        dbg!(tc.tc.global_connect_tsumugi_controller.lock().unwrap().keys());
-        self.sample_box_object.create3d_object(&tc.tc);
-        self.shapell_object.create3d_object(&tc.tc);
-        self.shapell.material.store_material(&tc.tc);
-        self.sample_box.material.store_material(&tc.tc);
+        dbg!(tc.tp.global_connect_tsumugi_controller.lock().unwrap().keys());
+        self.sample_box_object.create3d_object(&tc.tp);
+        self.shapell_object.create3d_object(&tc.tp);
+        self.shapell.material.store_material(&tc.tp);
+        self.sample_box.material.store_material(&tc.tp);
     }
 }
 
-pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiController> {
+pub fn spown_object_controller(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
     let mut newtc = tc.spown("tsumugiobject".to_string());
 
     newtc.set_objects(vec![
@@ -74,9 +74,9 @@ pub fn spown_object_controller(tc: &Box<TsumugiController>) -> Box<TsumugiContro
             input_item: Arc::new(Mutex::new(200)),
             input_item_local: Arc::new(Mutex::new(0)),
             local_tsumugi_sender: newtc.local_channel_sender.clone(),
-            shapell_object: Tsumugi3DObject::new("shapell", Path::new("Asset/shapell_Mtoon.vrm"), Shapell::load),
+            shapell_object: Tsumugi3DObject::new("shapell", Path::new("Asset/shapell_Mtoon.vrm"),"ShapellMaterial", Shapell::load),
             shapell: Shapell::default(),
-            sample_box_object: Tsumugi3DObject::new("samplebox", Path::new("Asset/Box.glb"), SampleBox::load),
+            sample_box_object: Tsumugi3DObject::new("samplebox", Path::new("Asset/Box.glb"),"SampleBoxMaterial", SampleBox::load),
             sample_box: SampleBox::default()
         }),
         // Box::new(ObjectA { input_item: Arc::new(Mutex::new(500)), input_item_local: Arc::new(Mutex::new(0)), local_tsumugi_sender: newtc.local_channel_sender.clone() })
@@ -95,7 +95,7 @@ struct Reset {
 }
 
 fn main() {
-    let mut tsumugiroot = TsumugiController::new("Tsumugi".to_string());
+    let mut tsumugiroot = TsumugiPortal::new("Tsumugi".to_string());
     //todo:spown_object_stock_handlerが初期化できてないとTsumugiStockが見つからずにエラーが出る可能性がある。遅延実行や先行処理をできるようにしたい
     tsumugiroot.execute_tsumugi_functions(vec![spown_3d_object_handler, spown_object_controller, spown_window_handler,spown_shader_stock_handler ,spown_figure_stock_handler, spown_direct_x12_handler, spown_debug_window_handler]);
     dbg!(tsumugiroot.global_connect_tsumugi_controller.lock().unwrap().keys());

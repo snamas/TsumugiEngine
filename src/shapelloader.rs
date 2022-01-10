@@ -136,7 +136,13 @@ impl Default for Shapell {
                 shader_path_hs: None,
                 shader_path_ds: None,
                 material: vec![Material {
-                    texture: vec![],
+                    texture: vec![
+                        Path::new("Asset/shapell_Mtoon_img0.png"),
+                        Path::new("Asset/shapell_Mtoon_img1.png"),
+                        Path::new("Asset/shapell_Mtoon_img2.png"),
+                        Path::new("Asset/shapell_Mtoon_img3.png"),
+                        Path::new("Asset/shapell_Mtoon_img4.png"),
+                        Path::new("Asset/shapell_Mtoon_img5.png")],
                     buffer: Vec::new(),
                     attributes: vec![
                         tsumuFigureStockCPU::Attribute::Position,

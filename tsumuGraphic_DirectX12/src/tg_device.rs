@@ -13,7 +13,7 @@ use winapi::um::winnt::HRESULT;
 use tsugumi_windows_library::HRESULTinto;
 use crate::tg_command_dispatcher::CpID3D12CommandDispacher;
 use crate::tg_command_queue::CpID3D12CommandQueue;
-use crate::tg_descriptor_controller::{TgD3d12CPUDescriptorHandle, TgD3d12GPUDescriptorHandle, TgDescriptorController, TgDescriptorHandle, TgID3D12DescriptorHeap};
+use crate::tg_descriptor_controller::{TgD3d12CPUDescriptorHandle, TgD3d12DescriptorHeapDesc, TgD3d12GPUDescriptorHandle, TgDescriptorController, TgDescriptorHandle, TgID3D12DescriptorHeap};
 use crate::tg_directx::{CpID3D12CommandAllocator,  CpID3D12Fence, CpID3D12PipelineState, CpID3D12Resource, CpID3D12RootSignature, CpID3DBlob};
 use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
 use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
@@ -74,32 +74,38 @@ impl TgID3D12Device {
             }
         }
     }
-    pub fn cp_create_descriptor_heap(&self, heap_desc: D3D12_DESCRIPTOR_HEAP_DESC) -> Result<TgID3D12DescriptorHeap, HRESULT> {
+    pub(crate) fn cp_create_descriptor_heap<const heap_type:D3D12_DESCRIPTOR_HEAP_TYPE>(&self, tg_heap_desc: TgD3d12DescriptorHeapDesc) -> Result<TgID3D12DescriptorHeap<heap_type>, HRESULT> {
         let mut _unknownobj = null_mut();
+        let heap_desc = D3D12_DESCRIPTOR_HEAP_DESC{
+            Type: heap_type,
+            NumDescriptors: tg_heap_desc.dynamic_descriptors+tg_heap_desc.static_descriptors,
+            Flags: tg_heap_desc.flags,
+            NodeMask: tg_heap_desc.node_mask
+        };
         unsafe {
             match self.0.as_ref().unwrap().CreateDescriptorHeap(&heap_desc, &ID3D12DescriptorHeap::uuidof(), &mut _unknownobj).result() {
                 Ok(v) => {
                     match (_unknownobj as *mut ID3D12DescriptorHeap).as_ref() {
                         Some(_id3d12descripterheap) => {
-                            let descriptor_number = heap_desc.NumDescriptors;
                             let gpu_descripter_handle =_id3d12descripterheap.GetGPUDescriptorHandleForHeapStart();
                             let cpu_descripter_heap = _id3d12descripterheap.GetCPUDescriptorHandleForHeapStart();
                             let align_size = self.0.as_ref().unwrap().GetDescriptorHandleIncrementSize(heap_desc.Type);
                             return Ok(TgID3D12DescriptorHeap {
                                 value: _id3d12descripterheap,
-                                desc: heap_desc,
+                                dynamic_descriptor_number: tg_heap_desc.dynamic_descriptors,
+                                static_descriptor_number: tg_heap_desc.static_descriptors,
                                 align_size: align_size,
                                 tg_d3d12cpudescriptor_handle: TgD3d12CPUDescriptorHandle {
                                     value: cpu_descripter_heap,
-                                    descriptor_heap_type: heap_desc.Type,
+                                    descriptor_heap_type: heap_type,
                                     align_size: align_size,
                                 },
                                 tg_d3d12gpudescriptor_handle: TgD3d12GPUDescriptorHandle {
                                     value: gpu_descripter_handle,
-                                    descriptor_heap_type: heap_desc.Type,
+                                    descriptor_heap_type: heap_type,
                                     align_size: align_size
                                 },
-                                descriptor_controller: Arc::new(Mutex::new(TgDescriptorController { free_list: (0..descriptor_number).rev().collect::<Vec<_>>() }))
+                                descriptor_controller: Arc::new(Mutex::new(TgDescriptorController { dynamic_free_list: (0..tg_heap_desc.dynamic_descriptors).rev().collect::<Vec<_>>(), static_position: 0 }))
                             }); }
                         None => { return Err(v); }
                     }

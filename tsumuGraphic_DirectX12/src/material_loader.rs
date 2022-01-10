@@ -54,23 +54,14 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
             let root_sig = tg_d3d12_root_signature_desc.cp_d3d12serialize_root_signature(D3D_ROOT_SIGNATURE_VERSION_1_0).and_then(|mut serialized_root_sig| {
                 Ok(tg_device.cp_create_root_signature(0, &mut serialized_root_sig).unwrap())
             });
+
+
             let input = Self::trans_input_elements(&material.attributes);
             //todo:ここマテリアルの属性をいろいろ入れたいね（現在シェーダー入れるだけ）
             let mut tg_graphics_pipeline_state_desc = TgD3d12GraphicsPipeline::default()
                 .vertex_shader(&self.shader_path_vs)
                 .pixel_shader(&self.shader_path_ps)
                 .input_layout(Self::trans_input_elements(&material.attributes));
-            let inputElementDesc = vec![
-                D3D12_INPUT_ELEMENT_DESC {
-                    SemanticName: CString::new("POSITION").expect("CString::new failed").into_raw(),
-                    SemanticIndex: 0,
-                    Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                    InputSlot: 0,
-                    AlignedByteOffset: D3D12_APPEND_ALIGNED_ELEMENT,
-                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                    InstanceDataStepRate: 0,
-                }
-            ];
             tg_graphics_pipeline_state_desc.0.InputLayout = D3D12_INPUT_LAYOUT_DESC { pInputElementDescs: input.as_ptr(), NumElements: input.len() as u32 };
             if let Some(gs) = &self.shader_path_gs {
                 tg_graphics_pipeline_state_desc = tg_graphics_pipeline_state_desc.geometry_shader(gs);
