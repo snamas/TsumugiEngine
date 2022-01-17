@@ -1,7 +1,8 @@
+use std::mem::transmute;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tsumugiShaderStock::{Material, TsumugiMaterial};
+use tsumugiShaderStock::{ConstantBuffer, Material, TsumugiMaterial, TsumugiShader};
 use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
 use crate::test_shader_PS::TestShaderPS;
 use crate::test_shader_VS::TestShaderVS;
@@ -12,10 +13,47 @@ const MaterialID: AtomicU64 = AtomicU64::new(0);
 pub struct Shapell {
     pub material: TsumugiMaterial,
 }
-
+#[derive(Clone)]
+pub struct shapellbuffer{
+    number:f32
+}
 #[derive(Clone)]
 pub struct ShapellMaterial {
-    pub material: Vec<TsumugiMaterial>,
+    pub figure_path:&'static Path,
+    pub shader_path_vs:TsumugiShader,
+    pub shader_path_ps:TsumugiShader,
+    pub shader_path_gs: Option<TsumugiShader>,
+    pub shader_path_hs: Option<TsumugiShader>,
+    pub shader_path_ds: Option<TsumugiShader>,
+    pub shapellBuffer:shapellbuffer,
+    pub shapellTexture:Vec<&'static Path>,
+    ///マテリアルの固有の番号。これが違うと異なるマテリアルと認識される
+    pub material_element_id:u64,
+    ///マテリアルの名前。
+    pub material_name: &'static str,
+}
+
+impl Into<TsumugiMaterial> for ShapellMaterial{
+    fn into(self) -> TsumugiMaterial {
+        let bufarr = unsafe{
+            std::mem::transmute::<_, [u8;4]>(self.shapellBuffer) };
+        TsumugiMaterial{
+            figure_path: self.figure_path,
+            shader_path_vs: self.shader_path_ps,
+            shader_path_ps: self.shader_path_ps,
+            shader_path_gs: self.shader_path_gs,
+            shader_path_hs: self.shader_path_hs,
+            shader_path_ds: self.shader_path_ds,
+            material: Material{
+                texture: self.shapellTexture,
+                buffer: vec![Vec::from(bufarr)],
+                buffersize: 0,
+                attributes: vec![]
+            },
+            material_element_id: self.material_element_id,
+            material_name: self.material_name
+        }
+    }
 }
 
 ///あとでbindgenみたいに自動生成できるように組む
@@ -109,15 +147,16 @@ impl Shapell {
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: vec![Material {
+                material: Material {
                     texture: vec![],
                     buffer: Vec::new(),
+                    buffersize: 0,
                     attributes: vec![
                         tsumuFigureStockCPU::Attribute::Position,
                         tsumuFigureStockCPU::Attribute::Normal,
                         tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
                     ]
-                }],
+                },
                 material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst),
                 material_name: "ShapellMaterial"
             },
@@ -135,7 +174,8 @@ impl Default for Shapell {
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: vec![Material {
+                material: Material {
+                    ///テクスチャを事前に生成しておこう。
                     texture: vec![
                         Path::new("Asset/shapell_Mtoon_img0.png"),
                         Path::new("Asset/shapell_Mtoon_img1.png"),
@@ -143,13 +183,15 @@ impl Default for Shapell {
                         Path::new("Asset/shapell_Mtoon_img3.png"),
                         Path::new("Asset/shapell_Mtoon_img4.png"),
                         Path::new("Asset/shapell_Mtoon_img5.png")],
-                    buffer: Vec::new(),
+                    //1.5の浮動小数点表現
+                    buffer: vec![vec![0x3f,0xc0,0x00,0x00]],
+                    buffersize: 4,
                     attributes: vec![
                         tsumuFigureStockCPU::Attribute::Position,
                         tsumuFigureStockCPU::Attribute::Normal,
                         tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
                     ]
-                }],
+                },
                 material_element_id: 0,
                 material_name: "ShapellMaterial",
             },

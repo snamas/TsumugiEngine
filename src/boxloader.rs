@@ -94,14 +94,15 @@ impl SampleBox {
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: vec![Material {
+                material: Material {
                     texture: vec![],
                     buffer: Vec::new(),
+                    buffersize: 0,
                     attributes: vec![
                         tsumuFigureStockCPU::Attribute::Position,
                         tsumuFigureStockCPU::Attribute::Normal
                     ]
-                }],
+                },
                 material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst),
                 material_name: "SampleBoxMaterial",
             },
@@ -119,14 +120,15 @@ impl Default for SampleBox {
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
-                material: vec![Material {
+                material: Material {
                     texture: vec![],
                     buffer: Vec::new(),
+                    buffersize: 0,
                     attributes: vec![
                         tsumuFigureStockCPU::Attribute::Position,
                         tsumuFigureStockCPU::Attribute::Normal
                     ]
-                }],
+                },
                 material_element_id: 0,
                 material_name: "SampleBoxMaterial",
             },

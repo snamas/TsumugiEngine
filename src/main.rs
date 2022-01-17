@@ -9,6 +9,7 @@ use std::pin::Pin;
 use std::task::{Context};
 use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
@@ -24,7 +25,8 @@ use tsumugiWindowController::spown_window_handler;
 use tsumuGraphic_DirectX12::spown_direct_x12_handler;
 use tsumuObject::{spown_3d_object_handler, Tsumugi3DObject};
 use tsumuFigureStockCPU::{Attribute, ObjectLoader, spown_figure_stock_handler, Texcoord, TsumugiVertexBinary};
-use tsumugiShaderStock::{spown_shader_stock_handler, TsumugiMaterial};
+use tsumugiShaderStock::{ConstantBuffer, spown_shader_stock_handler, TsumugiMaterial};
+use tsumugiShaderStock::ConstantBuffer::{F32, F32_4};
 use crate::boxloader::SampleBox;
 use crate::shapelloader::Shapell;
 
@@ -95,6 +97,23 @@ struct Reset {
 }
 
 fn main() {
+    {
+        let a:Vec<ConstantBuffer> = vec![F32(1.0),F32_4(12.0,13.0,14.0,15.0)];
+        let b:Vec<ConstantBuffer> = vec![F32(2.0),F32_4(20.0,21.0,22.0,23.0),F32(3.0),F32(4.0)];
+        let c = &a[1];
+    }
+    {
+        let mut a:HashMap<String,i32> = HashMap::new();
+        a.insert("app".to_string(),127);
+        a.insert("ore".to_string(),137);
+        let b = a.get("app").unwrap();
+        let c = a.get("ore").unwrap();
+        a.insert("pin".to_string(),147);
+        let b = a.get("app").unwrap();
+        let b = a.get("pin").unwrap();
+        let c = a.get("ore").unwrap();
+
+    }
     let mut tsumugiroot = TsumugiPortal::new("Tsumugi".to_string());
     //todo:spown_object_stock_handlerが初期化できてないとTsumugiStockが見つからずにエラーが出る可能性がある。遅延実行や先行処理をできるようにしたい
     tsumugiroot.execute_tsumugi_functions(vec![spown_3d_object_handler, spown_object_controller, spown_window_handler,spown_shader_stock_handler ,spown_figure_stock_handler, spown_direct_x12_handler, spown_debug_window_handler]);

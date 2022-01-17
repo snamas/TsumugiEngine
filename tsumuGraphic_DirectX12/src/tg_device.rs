@@ -7,7 +7,7 @@ use winapi::Interface;
 use winapi::shared::dxgiformat::DXGI_FORMAT_UNKNOWN;
 use winapi::shared::dxgitype::DXGI_SAMPLE_DESC;
 use winapi::shared::minwindef::UINT;
-use winapi::um::d3d12::{D3D12_CLEAR_VALUE, D3D12_COMMAND_LIST_TYPE, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE, D3D12_COMMAND_QUEUE_PRIORITY_NORMAL, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAGS, D3D12_GRAPHICS_PIPELINE_STATE_DESC, D3D12_HEAP_FLAG_NONE, D3D12_HEAP_FLAGS, D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_UPLOAD, D3D12_INDEX_BUFFER_VIEW, D3D12_MEMORY_POOL_UNKNOWN, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RESOURCE_DESC, D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATES, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, D3D12_VERTEX_BUFFER_VIEW, D3D12CreateDevice, ID3D12CommandAllocator, ID3D12CommandQueue, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
+use winapi::um::d3d12::{D3D12_CLEAR_VALUE, D3D12_COMMAND_LIST_TYPE, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE, D3D12_COMMAND_QUEUE_PRIORITY_NORMAL, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_FENCE_FLAGS, D3D12_GRAPHICS_PIPELINE_STATE_DESC, D3D12_HEAP_FLAG_NONE, D3D12_HEAP_FLAGS, D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_UPLOAD, D3D12_INDEX_BUFFER_VIEW, D3D12_MEMORY_POOL_UNKNOWN, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RESOURCE_DESC, D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATES, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, D3D12_VERTEX_BUFFER_VIEW, D3D12CreateDevice, D3D_ROOT_SIGNATURE_VERSION, ID3D12CommandAllocator, ID3D12CommandQueue, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
 use winapi::um::d3dcommon::D3D_FEATURE_LEVEL_12_1;
 use winapi::um::winnt::HRESULT;
 use tsugumi_windows_library::HRESULTinto;
@@ -17,6 +17,8 @@ use crate::tg_descriptor_controller::{TgD3d12CPUDescriptorHandle, TgD3d12Descrip
 use crate::tg_directx::{CpID3D12CommandAllocator,  CpID3D12Fence, CpID3D12PipelineState, CpID3D12Resource, CpID3D12RootSignature, CpID3DBlob};
 use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
 use crate::tg_graphics_pipeline::TgD3d12GraphicsPipeline;
+use crate::tg_root_signature::TgD3d12RootSignatureDesc;
+
 #[derive(Clone)]
 pub struct TgID3D12Device(pub *const ID3D12Device);
 //ID3D12Deviceはスレッドセーフだと書いてあったよ
@@ -301,6 +303,14 @@ impl TgID3D12Device {
                 }
                 Err(v) => return Err(v)
             }
+        }
+    }
+    pub fn tg_serialize_create_root_signature(&self, nodeMask: u32, tg_d3d12root_signature_desc:TgD3d12RootSignatureDesc, version: D3D_ROOT_SIGNATURE_VERSION) -> Result<CpID3D12RootSignature, HRESULT> {
+        //todo:ここ雑にBlobの処理をしてるよ
+        let result = tg_d3d12root_signature_desc.cp_d3d12serialize_root_signature(version);
+        match result{
+            Ok(mut cpid3dblob) => self.cp_create_root_signature(nodeMask,&mut cpid3dblob),
+            Err(errblob) => Err(errblob.1)
         }
     }
     pub fn cp_create_graphics_pipeline_state(&self, d3d12_graphics_pipeline_state_desc: &mut TgD3d12GraphicsPipeline, tg_rootsig_checker:&CpID3D12RootSignature) -> Result<CpID3D12PipelineState, HRESULT> {

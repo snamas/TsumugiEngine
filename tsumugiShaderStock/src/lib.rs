@@ -19,7 +19,7 @@ pub struct TsumugiMaterial {
     pub shader_path_hs: Option<TsumugiShader>,
     pub shader_path_ds: Option<TsumugiShader>,
     ///マテリアルの名前が重複していた場合は古いマテリアルが消される。
-    pub material:Vec<Material>,
+    pub material:Material,
     ///マテリアルの固有の番号。これが違うと異なるマテリアルと認識される
     pub material_element_id:u64,
     ///マテリアルの名前。
@@ -28,7 +28,7 @@ pub struct TsumugiMaterial {
 #[derive(Clone)]
 pub enum ConstantBuffer{
     F32(f32),
-    F32_4([f32;4])
+    F32_4(f32,f32,f32,f32)
 }
 #[derive(Clone)]
 pub struct CBuffer(Vec<ConstantBuffer>);
@@ -36,8 +36,11 @@ pub struct CBuffer(Vec<ConstantBuffer>);
 pub struct Material{
     ///テクスチャ配列
     pub texture:Vec<&'static Path>,
-    ///バッファ配列
-    pub buffer: Vec<CBuffer>,
+    ///バッファ配列。複数のCBufferバイナリデータで構成される。
+    pub buffer: Vec<Vec<u8>>,
+    ///事前に確定しておいたバッファ配列から計算したバッファのバイトサイズ。リソース作成の時に使う。
+    pub buffersize:usize,
+    ///一つの頂点データに何が含まれているか（頂点の場所、法線、ジョイント...）
     pub attributes:Vec<Attribute>
 }
 #[derive(Clone,Copy)]

@@ -49,6 +49,7 @@ pub enum Weight{
 pub struct TsumugiVertexBinary {
     pub object_path:&'static Path,
     pub shader_input_attribute:Vec<(Vec<Attribute>,u32)>,
+    ///Vec<u8>なのはVec<１頂点あたりのデータ>をVec<[u8;バイト数]>に変換しているから
     pub vertex:Vec<Vec<u8>>,
     pub index:Vec<Vec<u32>>
 }

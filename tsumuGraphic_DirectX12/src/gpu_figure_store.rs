@@ -32,6 +32,7 @@ pub struct FigureDataLayer {
 
 ///マテリアル層の下にはオブジェクト層がある
 pub struct MaterialLayer {
+    // todo:マテリアルが任意に消せるようにしたい。
     pub(crate) material: Vec<(CpID3D12PipelineState,CpID3D12RootSignature)>,
     pub(crate) object_layer: HashMap<u64, Tsumugi3DObject>,
 }

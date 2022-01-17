@@ -59,8 +59,6 @@ impl TsumuGraphicObject {
 }
 impl TsumugiObject for TsumuGraphicObject{
     fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
-        self.fetch_figuredata(&tc.tp);
-        self.fetch_materialdata(&tc.tp);
         self.receptHWND(tc);
         self.directx_store.debug_GPUStore(&tc.tp);
     }

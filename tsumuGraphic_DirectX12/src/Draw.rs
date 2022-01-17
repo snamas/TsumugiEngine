@@ -26,12 +26,6 @@ impl TsumuGraphicObject {
         let a = [1,2].iter().map(|v|{v});
         let mut thread_handle_window = arc_hwnd.clone();
         let tg_directx = self.clone();
-        let mut tg_descriptor_rtv = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_RTV>(TgD3d12DescriptorHeapDesc {
-            dynamic_descriptors: 2,
-            static_descriptors: 0,
-            flags: D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-            node_mask: 0
-        }).unwrap();
         let mut tg_descriptor_cbv_srv_uav = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>(TgD3d12DescriptorHeapDesc {
             dynamic_descriptors: 512,
             static_descriptors: 512,
@@ -44,10 +38,16 @@ impl TsumuGraphicObject {
             flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
             node_mask: 0
         }).unwrap();
+        let mut tg_descriptor_rtv = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_RTV>(TgD3d12DescriptorHeapDesc {
+            dynamic_descriptors: 2,
+            static_descriptors: 0,
+            flags: D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+            node_mask: 0
+        }).unwrap();
         let mut tg_descriptor_dsv = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_DSV>(TgD3d12DescriptorHeapDesc {
             dynamic_descriptors: 512,
             static_descriptors: 512,
-            flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+            flags: D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
             node_mask: 0
         }).unwrap();
         let mut tg_id3d12descriptor_heap_list = TgID3D12DescriptorHeapList{
@@ -56,6 +56,8 @@ impl TsumuGraphicObject {
             rtv: tg_descriptor_rtv.clone(),
             dsv: tg_descriptor_dsv
         };
+        self.fetch_materialdata(&tc.tp, &tg_id3d12descriptor_heap_list);
+        self.fetch_figuredata(&tc.tp);
         thread::spawn(move || {
             let tg_device = tg_directx.tg_device;
             let tg_factory = CpIDXGIFactory6::new();
