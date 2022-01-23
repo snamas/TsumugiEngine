@@ -1,13 +1,14 @@
 use std::mem::transmute;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tsumugiShaderStock::{ConstantBuffer, Material, TsumugiMaterial, TsumugiShader};
 use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
+use crate::shapell_shader_PS::ShapellShaderPS;
 use crate::test_shader_PS::TestShaderPS;
 use crate::test_shader_VS::TestShaderVS;
 
-const MaterialID: AtomicU64 = AtomicU64::new(0);
+const MaterialID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 pub struct Shapell {
@@ -28,7 +29,7 @@ pub struct ShapellMaterial {
     pub shapellBuffer:shapellbuffer,
     pub shapellTexture:Vec<&'static Path>,
     ///マテリアルの固有の番号。これが違うと異なるマテリアルと認識される
-    pub material_element_id:u64,
+    pub material_element_id:usize,
     ///マテリアルの名前。
     pub material_name: &'static str,
 }
@@ -143,7 +144,7 @@ impl Shapell {
             material: TsumugiMaterial {
                 figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
                 shader_path_vs: TestShaderVS::load(),
-                shader_path_ps: TestShaderPS::load(),
+                shader_path_ps: ShapellShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
@@ -170,7 +171,7 @@ impl Default for Shapell {
             material: TsumugiMaterial {
                 figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
                 shader_path_vs: TestShaderVS::load(),
-                shader_path_ps: TestShaderPS::load(),
+                shader_path_ps: ShapellShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
                 shader_path_ds: None,
@@ -183,8 +184,8 @@ impl Default for Shapell {
                         Path::new("Asset/shapell_Mtoon_img3.png"),
                         Path::new("Asset/shapell_Mtoon_img4.png"),
                         Path::new("Asset/shapell_Mtoon_img5.png")],
-                    //1.5の浮動小数点表現
-                    buffer: vec![vec![0x3f,0xc0,0x00,0x00]],
+                    //1.5の浮動小数点表現（リトルエンディアン）
+                    buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
                     buffersize: 4,
                     attributes: vec![
                         tsumuFigureStockCPU::Attribute::Position,

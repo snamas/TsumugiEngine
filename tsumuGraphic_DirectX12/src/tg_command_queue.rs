@@ -19,7 +19,7 @@ impl CpID3D12CommandQueue {
     }
     pub fn cp_signal(&self, cp_id3d12fence: &mut CpID3D12Fence) -> Result<HRESULT, HRESULT> {
         unsafe {
-            self.value.as_ref().unwrap().Signal(cp_id3d12fence.value, cp_id3d12fence.fenceval).result()
+            self.value.as_ref().unwrap().Signal(cp_id3d12fence.interface, cp_id3d12fence.fenceval).result()
         }
     }
 }

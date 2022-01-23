@@ -56,7 +56,7 @@ impl TsumuGraphicObject {
             rtv: tg_descriptor_rtv.clone(),
             dsv: tg_descriptor_dsv
         };
-        self.fetch_materialdata(&tc.tp, &tg_id3d12descriptor_heap_list);
+        self.fetch_materialdata(&tc.tp, &mut tg_id3d12descriptor_heap_list);
         self.fetch_figuredata(&tc.tp);
         thread::spawn(move || {
             let tg_device = tg_directx.tg_device;
@@ -90,7 +90,7 @@ impl TsumuGraphicObject {
                 tg_command_list.tg_reset(&mut tg_command_allocators, &mut None);
                 tg_command_list.tg_omset_render_targets(0..3,&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
                 let mut transition_barrier_desc = D3D12_RESOURCE_TRANSITION_BARRIER {
-                    pResource: tg_resource_rendertarges[currentindex_usize].value,
+                    pResource: tg_resource_rendertarges[currentindex_usize].interface,
                     Subresource: 0,
                     StateBefore: D3D12_RESOURCE_STATE_PRESENT,
                     StateAfter: D3D12_RESOURCE_STATE_RENDER_TARGET,

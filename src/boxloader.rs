@@ -1,12 +1,12 @@
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tsumugiShaderStock::{Material, TsumugiMaterial};
 use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
 use crate::test_shader_PS::TestShaderPS;
 use crate::test_shader_VS::TestShaderVS;
 
-const MaterialID:AtomicU64 = AtomicU64::new(1);
+const MaterialID:AtomicUsize = AtomicUsize::new(1);
 #[derive(Clone)]
 pub struct SampleBox {
     pub material:TsumugiMaterial

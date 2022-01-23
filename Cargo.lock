@@ -727,6 +727,7 @@ dependencies = [
  "tsumuObject",
  "tsumugi",
  "tsumugiShaderStock",
+ "tsumugiSimpleHashMap",
  "tsumugiWindowController",
  "winapi",
 ]
@@ -757,6 +758,7 @@ dependencies = [
  "tsumugi",
  "tsumugiKeyboardInput",
  "tsumugiShaderStock",
+ "tsumugiSimpleHashMap",
  "tsumugiWinRT",
  "tsumugiWindowController",
  "tsumugi_macro",
@@ -778,6 +780,10 @@ dependencies = [
  "tsumuFigureStockCPU",
  "tsumugi",
 ]
+
+[[package]]
+name = "tsumugiSimpleHashMap"
+version = "0.1.0"
 
 [[package]]
 name = "tsumugiWinRT"

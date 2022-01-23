@@ -47,7 +47,7 @@ pub struct TgD3d12GPUDescriptorHandle {
 }
 
 #[derive(Clone)]
-pub struct TgDescriptorHandle {
+pub struct TgDescriptorHandle<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> {
     pub cpu_hanle: D3D12_CPU_DESCRIPTOR_HANDLE,
     pub gpu_hanle: D3D12_GPU_DESCRIPTOR_HANDLE,
     pub(crate) heap_type: D3D12_DESCRIPTOR_HEAP_TYPE,
@@ -93,7 +93,7 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
             align_size: self.align_size,
         };
     }
-    fn get_descriptor_handle(&self, index: u32) -> TgDescriptorHandle {
+    fn get_descriptor_handle(&self, index: u32) -> TgDescriptorHandle<heap_type> {
         TgDescriptorHandle {
             cpu_hanle: self.tg_d3d12cpudescriptor_handle.tg_get_pointer(index),
             gpu_hanle: self.tg_d3d12gpudescriptor_handle.tg_get_pointer(index),
@@ -103,16 +103,16 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
             descriptor_controller: self.descriptor_controller.clone(),
         }
     }
-    pub fn allocate_dynamic_descriptor_handle(&mut self) -> Option<TgDescriptorHandle> {
+    pub fn allocate_dynamic_descriptor_handle(&mut self) -> Option<TgDescriptorHandle<heap_type>> {
         let index = { self.descriptor_controller.lock().unwrap().dynamic_free_list.pop()? };
         Some(self.get_descriptor_handle(index))
     }
     ///これで持ってきたハンドルは連続したメモリにあるよ。ただしメモリの使い回しが出来ないのでなくなったらおしまい。
-    pub fn allocate_static_descriptor_handle<const N: usize>(&mut self) -> Option<[TgDescriptorHandle; N]> {
+    pub fn allocate_static_descriptor_handle<const N: usize>(&mut self) -> Option<[TgDescriptorHandle<heap_type>; N]> {
         let mut descriptor_controller = self.descriptor_controller.lock().unwrap();
         let index =  descriptor_controller.static_position;
         let mut idx = 0;
-        let mut descriptor_handle_uninit: MaybeUninit<[TgDescriptorHandle; N]> = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut descriptor_handle_uninit: MaybeUninit<[TgDescriptorHandle<heap_type>; N]> = unsafe { MaybeUninit::uninit().assume_init() };
         for i in unsafe { descriptor_handle_uninit.assume_init_mut() } {
             //swapで交換、forgetでdropさせないをしておかないと、未初期化領域を解放しようとしてすべてを破壊する。
             let mut handle = self.get_descriptor_handle(index+idx);
@@ -125,8 +125,8 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
         Some(descriptor_handles)
     }
     ///これで持ってきたハンドルは連続したメモリにない可能性があるよ
-    pub fn allocate_dynamic_descriptor_handles<const N: usize>(&mut self) -> Option<[TgDescriptorHandle; N]> {
-        let mut descriptor_handle_uninit: MaybeUninit<[TgDescriptorHandle; N]> = unsafe { MaybeUninit::uninit().assume_init() };
+    pub fn allocate_dynamic_descriptor_handles<const N: usize>(&mut self) -> Option<[TgDescriptorHandle<heap_type>; N]> {
+        let mut descriptor_handle_uninit: MaybeUninit<[TgDescriptorHandle<heap_type>; N]> = unsafe { MaybeUninit::uninit().assume_init() };
         for i in unsafe { descriptor_handle_uninit.assume_init_mut() } {
             //swapで交換、forgetでdropさせないをしておかないと、未初期化領域を解放しようとしてすべてを破壊する。
             let mut handle = self.allocate_dynamic_descriptor_handle()?;
@@ -138,17 +138,16 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
     }
 }
 
-impl Drop for TgDescriptorHandle {
+impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> Drop for TgDescriptorHandle<heap_type> {
     ///dropする際、free_listにindexを返却してからdropする
     fn drop(&mut self) {
-        dbg!(&self.descriptor_controller.lock().unwrap().dynamic_free_list);
         if self.index < self.dynamic_descriptor_number {
             self.descriptor_controller.lock().unwrap().dynamic_free_list.push(self.index);
         }
     }
 }
 
-impl Default for TgDescriptorHandle{
+impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> Default for TgDescriptorHandle<heap_type>{
     fn default() -> Self {
         TgDescriptorHandle{
             cpu_hanle: D3D12_CPU_DESCRIPTOR_HANDLE { ptr: 0 },

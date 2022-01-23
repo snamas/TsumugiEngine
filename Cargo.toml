@@ -18,7 +18,8 @@ members = [
     "tsumuFigureStockCPU",
     "tsumuObject",
     "tsumuDebugwin",
-    "tsumugiShaderStock"
+    "tsumugiShaderStock",
+    "tsumugiSimpleHashMap"
 ]
 [dependencies]
 tsumugi_macro = {path = "tsumugi_macro" }
@@ -32,4 +33,5 @@ tsumuFigureStockCPU = {path = "tsumuFigureStockCPU" }
 tsumuObject = {path = "tsumuObject" }
 tsumuDebugwin  = {path = "tsumuDebugwin" }
 tsumugiShaderStock  = {path = "tsumugiShaderStock" }
+tsumugiSimpleHashMap  = {path = "tsumugiSimpleHashMap" }
 gltf = { version ="0.16", features = ["import"]}

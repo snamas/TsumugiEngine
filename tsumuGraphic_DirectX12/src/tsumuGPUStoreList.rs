@@ -9,10 +9,12 @@ use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumuFigureStockCPU::TsumugiStockController;
 use tsumugi::controller::TsumugiControllerItemLifeTime::Eternal;
 use tsumugiShaderStock::TsumugiMaterial;
-use crate::gpu_figure_store::{FigureDataLayer, MaterialLayer, TsumuGPUFigureDataStore};
+use tsumugiSimpleHashMap::TsumuHashMap;
+use crate::gpu_figure_store::{FigureDataLayer, MaterialCBV, MaterialLayer, TsumuGPUFigureDataStore};
 use crate::material_loader::MaterialLoadDirectx12;
 use crate::tg_descriptor_controller::TgID3D12DescriptorHeapList;
 use crate::tg_device::TgID3D12Device;
+use crate::tg_directx::{CpID3D12PipelineState, CpID3D12RootSignature};
 use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
 use crate::TsumuGraphicObject;
 
@@ -48,22 +50,22 @@ impl TsumuGraphicObject {
         tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(figure_antenna.into());
     }
     ///マテリアルデータをTsumugiStockMaterialsから引っ張ってくる
-    pub fn fetch_materialdata(&self,tc:&TsumugiPortal,descriptor_heap:&TgID3D12DescriptorHeapList){
+    pub fn fetch_materialdata(&self,tc:&TsumugiPortal,descriptor_heap:&mut TgID3D12DescriptorHeapList){
         let thread_list = self.directx_store.list.clone();
         let thread_device = self.tg_device.clone();
-        let thread_descriptor_heap = descriptor_heap.clone();
+        let mut thread_descriptor_heap = descriptor_heap.clone();
         //todo:ここ読み取りするアンテナが一つなら出来るけど複数読み取りで正確にマテリアルが同期されない可能性があるよ
         let material_antenna = TsumugiParcelReceptorNoVal::<TsumugiMaterial>::new().subscribe(Arc::new(move|parcel|{
             let parcel = &parcel.parcel.clone().unwrap();
-            let pipeline = parcel.load(&thread_device,&thread_descriptor_heap);
+            let pipeline = parcel.load(&thread_device,&mut thread_descriptor_heap.clone());
             thread_list.lock().unwrap()
                 .entry(parcel.figure_path)
                 .or_insert(FigureDataLayer{ figure_data: None, material_layer: HashMap::new() })
                 .material_layer
-                .entry(parcel.material_element_id)
-                .or_insert(MaterialLayer{ material: vec![], object_layer: Default::default() })
-                .material
-                .push(pipeline);
+                .entry(parcel.material_element_id as u64)
+                .or_insert(MaterialLayer{ material: TsumuHashMap::new(), object_layer: Default::default() })
+                .material.overwrite_insert(parcel.material_element_id,pipeline);
+
             TsumugiControllerItemState::Fulfilled
         })).to_antenna().displayname("TsumugiMaterial").parcelname("re_material").lifetime(Eternal);
         tc.find("TsumugiStockMaterials").unwrap().recept_channel_sender.send(material_antenna.into());
@@ -96,8 +98,11 @@ impl TsumuGPUStoreList {
                 for storedata in figure{
                     //todo:ここ雑にマテリアル配列０番目を参照してるよ
                     if let Some(material) =  figuredata.material_layer.get_mut(&0){
-                        tg_command_list[0].cp_set_pipeline_states(&mut material.material[0].0);
-                        tg_command_list[0].cp_set_graphics_root_signature(&mut material.material[0].1);
+                        tg_command_list[0].cp_set_pipeline_states(&mut material.material.vector[0].0);
+                        tg_command_list[0].cp_set_graphics_root_signature(&mut material.material.vector[0].1);
+                        for (material_resource,descriptorHandle) in &mut material.material.vector[0].2.0{
+                            tg_command_list[0].tg_set_graphics_root_constant_buffer_view(material_resource);
+                        }
                         tg_command_list[0].cp_iaset_primitive_topology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                         tg_command_list[0].cp_iaset_vertex_buffers(0, &vec![storedata.vertex_view]);
                         tg_command_list[0].cp_iaset_index_buffer(&storedata.index_view);

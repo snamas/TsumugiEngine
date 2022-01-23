@@ -42,13 +42,13 @@ impl<const N: usize> CpIDXGISwapChain4<N> {
         }
     }
     ///バッファの取得。indexに与えた番号のリソースが返ってくる（CpID3D12Resourceのsizeは0）
-    pub fn cp_get_buffer(&self, index: UINT) -> Result<CpID3D12Resource<UINT>, HRESULT> {
+    pub fn cp_get_buffer(&self, index: UINT) -> Result<CpID3D12Resource<UINT,UINT>, HRESULT> {
         unsafe {
             let mut _unknownobj = null_mut();
             match self.value.as_ref().unwrap().GetBuffer(index, &ID3D12Resource::uuidof(), &mut _unknownobj).result() {
                 Ok(v) => {
                     match (_unknownobj as *mut ID3D12Resource).as_mut() {
-                        Some(id3d12resource) => { return Ok(CpID3D12Resource { value: id3d12resource, bytesize:0, _phantom: Default::default() }); }
+                        Some(id3d12resource) => { return Ok(CpID3D12Resource { interface: id3d12resource, bytesize:0, root_parameter_index: None, mapvalue: None, _phantom_s: Default::default() }); }
                         None => { return Err(v); }
                     }
                 }
@@ -56,7 +56,7 @@ impl<const N: usize> CpIDXGISwapChain4<N> {
             }
         }
     }
-    pub fn tg_get_buffers(&self)-> Result<CpID3D12Resource<UINT>, HRESULT> {
+    pub fn tg_get_buffers(&self)-> Result<CpID3D12Resource<UINT,UINT>, HRESULT> {
         todo!();
     }
     pub fn cp_get_current_back_buffer_index(&self) -> u32 {

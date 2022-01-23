@@ -5,7 +5,7 @@ use winapi::shared::minwindef::UINT;
 use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_INDEX_BUFFER_VIEW, D3D12_PRIMITIVE_TOPOLOGY, D3D12_RECT, D3D12_RESOURCE_BARRIER, D3D12_VERTEX_BUFFER_VIEW, D3D12_VIEWPORT, ID3D12GraphicsCommandList, ID3D12PipelineState};
 use winapi::um::winnt::HRESULT;
 use tsugumi_windows_library::{HRESULTinto, vector_Hresult};
-use crate::tg_directx::{CpID3D12CommandAllocator, CpID3D12PipelineState, CpID3D12RootSignature};
+use crate::tg_directx::{CpID3D12CommandAllocator, CpID3D12PipelineState, CpID3D12Resource, CpID3D12RootSignature};
 
 pub struct CpID3D12GraphicsCommandList(pub *mut ID3D12GraphicsCommandList);
 
@@ -87,6 +87,12 @@ impl CpID3D12GraphicsCommandList {
         }
     }
 
+
+    pub fn tg_set_graphics_root_constant_buffer_view(&self, resource: &mut CpID3D12Resource<u8, &'static mut [u8]>) {
+        unsafe {
+            self.0.as_ref().unwrap().SetGraphicsRootConstantBufferView(resource.root_parameter_index.unwrap() as UINT, resource.tg_get_GPU_Virtal_Address())
+        }
+    }
     pub fn cp_iaset_primitive_topology(&self, PrimitiveTopology: D3D12_PRIMITIVE_TOPOLOGY) {
         unsafe {
             self.0.as_ref().unwrap().IASetPrimitiveTopology(PrimitiveTopology)

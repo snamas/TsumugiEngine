@@ -13,4 +13,5 @@ tsumugiWindowController = {path = "../tsumugiWindowController" }
 tsumuFigureStockCPU = {path = "../tsumuFigureStockCPU" }
 tsumugiShaderStock = {path = "../tsumugiShaderStock" }
 tsumuObject = {path = "../tsumuObject" }
+tsumugiSimpleHashMap  = {path = "../tsumugiSimpleHashMap" }
 nalgebra = "0.24.0"

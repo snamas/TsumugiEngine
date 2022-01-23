@@ -21,7 +21,7 @@ pub struct TsumugiMaterial {
     ///マテリアルの名前が重複していた場合は古いマテリアルが消される。
     pub material:Material,
     ///マテリアルの固有の番号。これが違うと異なるマテリアルと認識される
-    pub material_element_id:u64,
+    pub material_element_id:usize,
     ///マテリアルの名前。
     pub material_name: &'static str,
 }

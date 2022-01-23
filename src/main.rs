@@ -2,6 +2,7 @@ mod shapelloader;
 mod boxloader;
 mod test_shader_PS;
 mod test_shader_VS;
+mod shapell_shader_PS;
 
 use std::future::Future;
 use std::sync::{Arc, Mutex, mpsc};
@@ -11,6 +12,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::path::Path;
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use tsumuDebugwin::spown_debug_window_handler;
@@ -65,6 +67,22 @@ impl TsumugiObject for ObjectA {
         self.shapell_object.create3d_object(&tc.tp);
         self.shapell.material.store_material(&tc.tp);
         self.sample_box.material.store_material(&tc.tp);
+        let mut shapell_mat = self.shapell.material.clone();
+        let tp = tc.tp.clone();
+        thread::spawn(move ||{
+            let mut num = 0f32;
+            loop {
+                sleep(Duration::new(0,100));
+                let bufarr = unsafe{
+                    std::mem::transmute::<_, [u8;4]>(num) };
+                shapell_mat.material.buffer = vec![bufarr.to_vec()];
+                shapell_mat.store_material(&tp);
+                num += 0.01;
+                if num >=1f32{
+                    num = 0f32;
+                }
+            }
+        });
     }
 }
 
