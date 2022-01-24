@@ -74,13 +74,10 @@ impl TsumugiObject for ObjectA {
             loop {
                 sleep(Duration::new(0,100));
                 let bufarr = unsafe{
-                    std::mem::transmute::<_, [u8;4]>(num) };
+                    std::mem::transmute::<_, [u8;4]>(num.cos()) };
                 shapell_mat.material.buffer = vec![bufarr.to_vec()];
                 shapell_mat.store_material(&tp);
                 num += 0.01;
-                if num >=1f32{
-                    num = 0f32;
-                }
             }
         });
     }

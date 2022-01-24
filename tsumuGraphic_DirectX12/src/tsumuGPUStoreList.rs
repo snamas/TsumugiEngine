@@ -98,9 +98,9 @@ impl TsumuGPUStoreList {
                 for storedata in figure{
                     //todo:ここ雑にマテリアル配列０番目を参照してるよ
                     if let Some(material) =  figuredata.material_layer.get_mut(&0){
-                        tg_command_list[0].cp_set_pipeline_states(&mut material.material.vector[0].0);
-                        tg_command_list[0].cp_set_graphics_root_signature(&mut material.material.vector[0].1);
-                        for (material_resource,descriptorHandle) in &mut material.material.vector[0].2.0{
+                        tg_command_list[0].cp_set_pipeline_states(&mut material.material.vector[0].as_mut().unwrap().0);
+                        tg_command_list[0].cp_set_graphics_root_signature(&mut material.material.vector[0].as_mut().unwrap().1);
+                        for (material_resource,descriptorHandle) in &mut material.material.vector[0].as_mut().unwrap().2.0{
                             tg_command_list[0].tg_set_graphics_root_constant_buffer_view(material_resource);
                         }
                         tg_command_list[0].cp_iaset_primitive_topology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
