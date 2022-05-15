@@ -49,7 +49,7 @@ unsafe impl Sync for MaterialCBV {}
 
 impl TsumuGPUFigureDataStore {
     ///3DデータをDirectX12用にロードするよ。TsumugiVertexBinaryが可変参照で必要だけど、これは変わらないよ。
-    pub fn load(data: &mut Arc<TsumugiVertexBinary>, tg_id3d12device: &TgID3D12Device) -> Vec<Self> {
+    pub fn load(data: &mut TsumugiVertexBinary, tg_id3d12device: &TgID3D12Device) -> Vec<Self> {
         data.vertex.iter().zip(data.index.iter()).zip(data.shader_input_attribute.iter()).map(|((vertex, index), attributes)| {
             let mut CpVertResource = tg_id3d12device.cp_create_buffer_resource(0, vertex).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             //todo:これDropするときに値が消去されないか心配

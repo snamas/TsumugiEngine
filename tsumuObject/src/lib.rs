@@ -8,11 +8,12 @@ use std::sync::atomic::Ordering::SeqCst;
 use nalgebra::{Point, Point2, Point3};
 use tsumuFigureStockCPU::TsumugiVertexBinary;
 use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject, TsumugiControllerItemLifeTime};
-use tsumugi::controller::TsumugiControllerItemLifeTime::Eternal;
+use tsumugi::controller::TsumugiControllerItemLifeTime::{Eternal, Once};
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumuFigureStockCPU::{TsumugiStock};
+use tsumugi::controller::TsumugiControllerItemState::Fulfilled;
 use crate::camera::Camera;
 
 static CONTROLLER_NAME: &str = "tsumugi3dObject";
@@ -26,7 +27,11 @@ pub struct TsumugiObjectController {
     object_key_origin: Arc<AtomicU64>,
 }
 
-struct TsumugiObjectConstructor();
+#[derive(Clone)]
+struct TsumugiObjectConstructor{
+    object_id:u64,
+    object:Tsumugi3DObject
+}
 
 #[derive(Copy, Clone)]
 enum Tsumugi3DObjectAction {
@@ -141,20 +146,21 @@ impl TsumugiObject for TsumugiObjectController {
                         let object_key_distribution = object_hashmap.insert(object.tsumugi3dobject);
                         object.object_key.0.write().unwrap().replace(object_key_distribution);
                         tp.tp.local_channel_sender.pickup_channel_sender
-                            .send(TsumugiParcelDistributor::new(object_key_distribution)
-                                .displayname("Object_Spown!")
+                            .send(TsumugiParcelDistributor::new(TsumugiObjectConstructor{ object_id: object_key_distribution, object: object.tsumugi3dobject })
+                                .displayname("Object_Spawn!")
                                 .lifetime(TsumugiControllerItemLifeTime::Once)
-                                .parcelname("object_key")
+                                .parcelname("object_spawn")
                                 .into());
                     }
+                    //todo:ここobject_spawnするときにCreateとUpdateの区別をしていないよ
                     Tsumugi3DObjectAction::Update => {
                         if let Some(key) = *object.object_key.0.read().unwrap(){
                             object_hashmap.update(object.tsumugi3dobject,key);
                             tp.tp.local_channel_sender.pickup_channel_sender
-                                .send(TsumugiParcelDistributor::new(key)
-                                    .displayname("Object_Spown!")
+                                .send(TsumugiParcelDistributor::new(TsumugiObjectConstructor{ object_id: key, object: object.tsumugi3dobject })
+                                    .displayname("Object_Spawn!")
                                     .lifetime(TsumugiControllerItemLifeTime::Once)
-                                    .parcelname("object_key")
+                                    .parcelname("object_spawn")
                                     .into());
                         }
                     }
@@ -168,6 +174,21 @@ impl TsumugiObject for TsumugiObjectController {
         let dist_object = TsumugiParcelDistributor::new(self.clone()).displayname("object_distributor").lifetime(Eternal);
         tc.tp.local_channel_sender.pickup_channel_sender.send(dist_object.into());
     }
+}
+fn fetch_3dobject(tp:&TsumugiPortal,fetch_func:fn(&u64,&Tsumugi3DObject)){
+    let first_fetch = TsumugiParcelReceptorNoVal::<TsumugiObjectController>::new().subscribe(Arc::new(move |object_list|{
+        object_list.parcel.as_ref().unwrap().object_hashmap.lock().unwrap().iter().for_each(|(object_key,object)|{
+            fetch_func(object_key,object);
+        });
+        Fulfilled
+    })).to_antenna().displayname("Object_FirstGet!").parcelname("object_spawn").lifetime(Once);
+    let connect_fetch = TsumugiParcelReceptorNoVal::<TsumugiObjectConstructor>::new().subscribe(Arc::new(move |object|{
+        let key = object.parcel.as_ref().unwrap().object_id;
+        fetch_func(&key, &object.parcel.as_ref().unwrap().object);
+        Fulfilled
+    })).to_antenna().displayname("Object_Get!").parcelname("object_spawn").lifetime(Eternal);
+    tp.find(CONTROLLER_NAME).unwrap().recept_channel_sender.send(first_fetch.into());
+    tp.find(CONTROLLER_NAME).unwrap().recept_channel_sender.send(connect_fetch.into());
 }
 
 pub fn spown_3d_object_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {

@@ -6,8 +6,10 @@ use std::thread;
 use std::thread::Thread;
 use gltf::{buffer, Document, image};
 use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
+use tsumugi::controller::TsumugiControllerItemState::Fulfilled;
 use tsumugi::distributor::TsumugiParcelDistributor;
 use tsumugi::parcel_receptor::TsumugiParcelReceptor;
+use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 
 #[derive(Copy, Clone)]
 pub enum Attribute {
@@ -62,7 +64,7 @@ pub trait ObjectLoader {
 static TSUMUGI_STOCK_CPUNAME: &str = "TsumugiStockCPU";
 ///PathはオブジェクトのパスをカギとしたHashMap
 #[derive(Clone)]
-pub struct TsumugiStockController(pub Arc<Mutex<HashMap<&'static Path, Arc<TsumugiVertexBinary>>>>);
+pub struct TsumugiStockController(pub Arc<Mutex<HashMap<&'static Path, TsumugiVertexBinary>>>);
 
 ///Pathはオブジェクトのパス
 #[derive(Clone, Copy)]
@@ -78,19 +80,19 @@ impl TsumugiStockController {
         thread::spawn(move ||{
             //ここでオブジェクトのロードがあるよ
             let figure_data = stock.1().unwrap();
-            thread_arc.0.lock().unwrap().insert(stock.0, Arc::from(figure_data));
+            thread_arc.0.lock().unwrap().insert(stock.0, figure_data);
             Self::announce(stock_element.0,&thread_tc);
         });
         return Some(stock_element.0);
     }
     ///オブジェクトを保存して、バイナリを返すよ。
-    fn load_store_sync(&self, stock_element: TsumugiStock) -> Option<Arc<TsumugiVertexBinary>> {
-        let material = Arc::new(stock_element.1()?);
+    fn load_store_sync(&self, stock_element: TsumugiStock) -> Option<TsumugiVertexBinary> {
+        let material = stock_element.1()?;
         self.0.lock().unwrap().insert(stock_element.0, material.clone());
         Some(material)
     }
     ///オブジェクト引っ張ってくるよ、あったらそのまま返して無かったら生成して返すよ。
-    fn load_sync(&self, path: TsumugiStock) -> Option<Arc<TsumugiVertexBinary>> {
+    fn load_sync(&self, path: TsumugiStock) -> Option<TsumugiVertexBinary> {
         if let Some(value) = self.0.lock().unwrap().get(path.0) {
             Some(value.clone())
         } else {
@@ -108,16 +110,13 @@ impl Default for TsumugiStockController {
         TsumugiStockController { 0: Arc::new(Mutex::new(Default::default())) }
     }
 }
-fn nofunc() ->Option<TsumugiVertexBinary>{
-    None
-}
 impl TsumugiObject for TsumugiStockController {
     fn on_create(&self, tc: &tsumugi::controller::TsumugiPortalPlaneLocal) {
         let mut object_hashmap = self.clone();
-        let recept_object = TsumugiParcelReceptor::new(TsumugiStock { 0: &Path::new(""), 1: nofunc })
-            .subscribe_tc(Arc::new(move |object,tc| {
+        let recept_object = TsumugiParcelReceptorNoVal::<TsumugiStock>::new()
+            .subscribe_with_portal(Arc::new(move |object,tc| {
                 //todo:ここキーをどうするか未定
-                object_hashmap.store(*object.parcel,tc);
+                object_hashmap.store(*object.parcel.as_ref().unwrap().clone(),tc);
                 TsumugiControllerItemState::Fulfilled
             })).to_antenna().displayname("recept_object");
         let dist_stock = TsumugiParcelDistributor::new(self.clone()).lifetime(TsumugiControllerItemLifeTime::Eternal).displayname("TsumugiStockController");
@@ -125,7 +124,6 @@ impl TsumugiObject for TsumugiStockController {
         tc.tp.local_channel_sender.recept_channel_sender.send(recept_object.into());
     }
 }
-
 impl TsumugiStock {
     pub fn store_figure(&self, tc: &TsumugiPortal) {
         let tsumugi_path = self.clone();

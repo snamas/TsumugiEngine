@@ -84,7 +84,7 @@ impl TsumugiObject for ObjectA {
 }
 
 pub fn spown_object_controller(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
-    let mut newtc = tc.spown("tsumugiobject".to_string());
+    let mut newtc = tc.spown("tsumugiscene".to_string());
 
     newtc.set_objects(vec![
         Box::new(ObjectA {
