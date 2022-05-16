@@ -56,7 +56,7 @@ pub enum TsumugiControllerItemLifeTime {
     ///決めたサイクル数まで生存する
     Lifecycle(u32),
 }
-
+///つむぎ内で使う構造体。つむぎの外や、クローンする場合はTsumugiPortalを使おう。
 pub struct TsumugiPortalPlaneLocal {
     pub tp: TsumugiPortal,
     pub(crate) tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>,
