@@ -57,6 +57,7 @@ pub enum TsumugiControllerItemLifeTime {
     Lifecycle(u32),
 }
 
+/// 同一つむぎ環境から読み込むことを目的とした構造多。スレッドをまたぐなどする場合はTsumugiPortalを使おう
 pub struct TsumugiPortalPlaneLocal {
     pub tp: TsumugiPortal,
     pub(crate) tsumugi_object_vector: Vec<Box<dyn TsumugiObject + Send>>,
