@@ -140,6 +140,7 @@ impl ObjectLoader for Shapell {
 impl Shapell {
     ///マテリアルを新しく作る時は過去作ったものとかぶらないようにしよう
     fn new() -> Self {
+        //todo:データ構造が未定。既存のマテリアルから生成するという実態に即していない可能性がある。共通のマテリアルを使いたい場合と、別々のマテリアルにしたい場合とで分ける...Defaultなくしてnew()とspawn()だけにするかもしれん
         Shapell {
             material: TsumugiMaterial {
                 figure_path: Path::new("Asset/shapell_Mtoon.vrm"),

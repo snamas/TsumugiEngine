@@ -175,6 +175,7 @@ impl TsumugiObject for TsumugiObjectController {
         tc.tp.local_channel_sender.pickup_channel_sender.send(dist_object.into());
     }
 }
+///第一引数にポータルの参照、第二引数にオブジェクトを受け取ったらどうするかが入るよ。
 fn fetch_3dobject(tp:&TsumugiPortal,fetch_func:fn(&u64,&Tsumugi3DObject)){
     let first_fetch = TsumugiParcelReceptorNoVal::<TsumugiObjectController>::new().subscribe(Arc::new(move |object_list|{
         object_list.parcel.as_ref().unwrap().object_hashmap.lock().unwrap().iter().for_each(|(object_key,object)|{

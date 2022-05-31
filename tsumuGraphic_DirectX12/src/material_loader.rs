@@ -37,6 +37,7 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
         {
             let constant_buffer_len = self.material.buffer.len();
             let mut root_parameter:TgD3d12RootParameters = TgD3d12RootParameters::with_capacity(constant_buffer_len + 1);
+            ///iは最終的にRootParameterIndexになるよ。でもShaderRegisterも同じ番号というのはちょっと...
             let resources_cbv = self.material.buffer.iter().enumerate().map(|(i,buffer)|{
                 root_parameter.append_descriptor_cbv(D3D12_ROOT_DESCRIPTOR{ ShaderRegister: i as UINT, RegisterSpace: 0 }, D3D12_SHADER_VISIBILITY_ALL);
                 let descriptor_handle = tg_descriptor_heap_list.cbv_srv_uav.allocate_dynamic_descriptor_handle().unwrap_or_else(||{panic!("cbv allocate Failed")});
@@ -58,6 +59,7 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
             let root_sig = tg_device.tg_serialize_create_root_signature(0, root_sig_desc, D3D_ROOT_SIGNATURE_VERSION_1_0).unwrap();
 
             {
+                //todo:ここでテクスチャの確保をしたい。ディスクリプタヒープが連続になってくれたらいいな～～
                 let discriptor_range: Vec<D3D12_DESCRIPTOR_RANGE> = vec![
                     D3D12_DESCRIPTOR_RANGE {
                         RangeType: D3D12_DESCRIPTOR_RANGE_TYPE_SRV,

@@ -49,6 +49,7 @@ impl TsumuGraphicObject {
         })).to_antenna().displayname("check_store").lifetime(TsumugiControllerItemLifeTime::Once);
         tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(figure_antenna.into());
     }
+    //todo:この関数。tsumuObjectにあるみたいに向こうの関数から引っ張った方がいいよ～～～～
     ///マテリアルデータをTsumugiStockMaterialsから引っ張ってくる
     pub fn fetch_materialdata(&self,tc:&TsumugiPortal,descriptor_heap:&mut TgID3D12DescriptorHeapList){
         let thread_list = self.directx_store.list.clone();
@@ -57,6 +58,7 @@ impl TsumuGraphicObject {
         //todo:ここ読み取りするアンテナが一つなら出来るけど複数読み取りで正確にマテリアルが同期されない可能性があるよ
         let material_antenna = TsumugiParcelReceptorNoVal::<TsumugiMaterial>::new().subscribe(Arc::new(move|parcel|{
             let parcel = &parcel.parcel.clone().unwrap();
+            //todo:ディスクリプタヒープを無駄に更新してしまう可能性から、マテリアルを新規にロードするか、すでにロードされていたら、アップデートにするかの選択をさせておきたい。ディスクリプタハンドルの更新だけですむからお得？
             let pipeline = parcel.load(&thread_device,&mut thread_descriptor_heap.clone());
             thread_list.lock().unwrap()
                 .entry(parcel.figure_path)

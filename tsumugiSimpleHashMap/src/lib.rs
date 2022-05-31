@@ -1,7 +1,8 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::iter::FilterMap;
 use std::vec::IntoIter;
-
+//連続したメモリ領域から並列実行を行えたらいいなという目的で始めた。あとリストの内容がいじりやすい。あとHashMapそのまま使うよりもループが若干速い。
 pub struct TsumuHashMap<T>{
     //<usize:入ってくる数値,usize:vector配列のインデックス>
     hashmap:HashMap<usize,usize>,
@@ -18,6 +19,21 @@ impl<T> TsumuHashMap<T> {
             free:  vec![]
         }
     }
+    pub fn get(&mut self,index:usize)->Option<&T>{
+        match self.hashmap.get(&index) {
+            None => {None}
+            Some(i) => {
+                self.vector[*i].as_ref()
+            }
+        }
+    }
+    pub fn get_mut(&mut self,index:usize)->Option<&mut T>{
+        match self.hashmap.get(&index) {
+            None => {None }
+            Some(i) => {self.vector[*i].as_mut()}
+        }
+    }
+    ///indexの番号にオブジェクトを入れるよ。すでにその番号にオブジェクトが入ってたら、元のオブジェクトが上書きされるよ。
     pub fn overwrite_insert(&mut self,index:usize,element:T){
         match self.hashmap.get(&index){
             None => {
@@ -38,6 +54,7 @@ impl<T> TsumuHashMap<T> {
             }
         }
     }
+    ///indexの番号のオブジェクトを消すよ。
     pub fn delete(&mut self,index:usize){
         match self.hashmap.remove(&index) {
             None => {
@@ -51,6 +68,7 @@ impl<T> TsumuHashMap<T> {
     }
 }
 
+///vectorは消したり追加したりしていたらすかすかだよ。for文とかで回すときにはオブジェクトが入っている物だけ流れてくるようにするよ。
 impl<T> IntoIterator for TsumuHashMap<T>{
     type Item = T;
     type IntoIter = FilterMap<IntoIter<Option<T>>, fn(Option<T>) -> Option<T>>;
