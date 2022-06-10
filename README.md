@@ -19,3 +19,4 @@ DirectX12を用いた描画エンジン（Windows専用）
 ウィンドウを生成したり管理するようなライブラリ（Windows専用）
 ### tsumuDebugwin
 imguiを用いたデバッグ用ライブラリ（Windows専用）
+vcpkgに依存
