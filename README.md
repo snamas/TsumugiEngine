@@ -10,7 +10,7 @@
 ### tsumuObject
 オブジェクトの場所や状態を管理するライブラリ
 ### tsumugiSimpleHashMap
-ハッシュマップと配列を組み合わせることで、マテリアルやオブジェクを素早く回せるようなHashMapライブラリ
+ハッシュマップと配列を組み合わせることで、マテリアルやオブジェクを素早く回せるようなリストが記述されているライブラリ
 ### tsumuGraphic_DirectX12
 DirectX12を用いた描画エンジン（Windows専用）
 ### tsumugiKeyboardInput
