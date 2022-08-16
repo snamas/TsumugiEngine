@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tsumugiShaderStock::{ConstantBuffer, Material, TsumugiMaterial, TsumugiShader};
 use tsumuFigureStockCPU::{Attribute, Color, Joint, ObjectLoader, Texcoord, TsumugiVertexBinary, Weight};
 use crate::shapell_shader_PS::ShapellShaderPS;
+use crate::shapell_shader_VS::ShapellShaderVS;
 use crate::test_shader_PS::TestShaderPS;
 use crate::test_shader_VS::TestShaderVS;
 
@@ -144,7 +145,7 @@ impl Shapell {
         Shapell {
             material: TsumugiMaterial {
                 figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
-                shader_path_vs: TestShaderVS::load(),
+                shader_path_vs: ShapellShaderVS::load(),
                 shader_path_ps: ShapellShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,
@@ -171,7 +172,7 @@ impl Default for Shapell {
         Shapell {
             material: TsumugiMaterial {
                 figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
-                shader_path_vs: TestShaderVS::load(),
+                shader_path_vs: ShapellShaderVS::load(),
                 shader_path_ps: ShapellShaderPS::load(),
                 shader_path_gs: None,
                 shader_path_hs: None,

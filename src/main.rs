@@ -3,6 +3,7 @@ mod boxloader;
 mod test_shader_PS;
 mod test_shader_VS;
 mod shapell_shader_PS;
+mod shapell_shader_VS;
 
 use std::future::Future;
 use std::sync::{Arc, Mutex, mpsc};

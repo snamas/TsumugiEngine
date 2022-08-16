@@ -5,7 +5,7 @@ use std::ptr::null_mut;
 use winapi::ctypes::c_void;
 use winapi::shared::minwindef::{DWORD, UINT};
 use winapi::shared::winerror::S_OK;
-use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_GPU_VIRTUAL_ADDRESS, D3D12_RANGE, D3D12_RESOURCE_ALIASING_BARRIER, D3D12_RESOURCE_BARRIER, D3D12_RESOURCE_BARRIER_FLAGS, D3D12_RESOURCE_BARRIER_TYPE_ALIASING, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION, D3D12_RESOURCE_BARRIER_TYPE_UAV, D3D12_RESOURCE_BARRIER_u, D3D12_RESOURCE_DESC, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RESOURCE_UAV_BARRIER, ID3D12CommandAllocator, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
+use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_GPU_VIRTUAL_ADDRESS, D3D12_PLACED_SUBRESOURCE_FOOTPRINT, D3D12_RANGE, D3D12_RESOURCE_ALIASING_BARRIER, D3D12_RESOURCE_BARRIER, D3D12_RESOURCE_BARRIER_FLAGS, D3D12_RESOURCE_BARRIER_TYPE_ALIASING, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION, D3D12_RESOURCE_BARRIER_TYPE_UAV, D3D12_RESOURCE_BARRIER_u, D3D12_RESOURCE_DESC, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RESOURCE_UAV_BARRIER, D3D12_SUBRESOURCE_FOOTPRINT, D3D12_TEXTURE_COPY_LOCATION, D3D12_TEXTURE_COPY_LOCATION_u, D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, ID3D12CommandAllocator, ID3D12DescriptorHeap, ID3D12Device, ID3D12Fence, ID3D12PipelineState, ID3D12Resource, ID3D12RootSignature};
 use winapi::um::d3dcommon::{D3D_SHADER_MACRO, ID3D10Blob, ID3DBlob, ID3DInclude};
 use winapi::um::d3dcompiler::D3DCompileFromFile;
 use winapi::um::handleapi::CloseHandle;
@@ -14,8 +14,16 @@ use winapi::um::synchapi::{CreateEventW, WaitForSingleObject};
 use winapi::um::winnt::{HRESULT, LPCWSTR, HANDLE, LPCSTR};
 use tsugumi_windows_library::{BoolInto, wide_char,HRESULTinto};
 use crate::tg_device::TgID3D12Device;
+use crate::tg_graphics_command_list::CpID3D12GraphicsCommandList;
+
 
 pub struct TgResourceDesc(D3D12_RESOURCE_DESC);
+
+///リソースを管理する構造体
+/// * `interface` - リソースの本体
+/// * `bytesize` - リソースのバイトサイズ
+/// * `root_parameter_index` - ルートパラメータを参照するときに必要。レンダーターゲットや深度バッファでは不要
+/// * `mapvalue` - Mapした値が入っているよ。これを操作することでリソースをいじれるよ
 pub struct CpID3D12Resource<T: 'static,S: 'static> {
     pub(crate) interface: *mut ID3D12Resource,
     ///BUFFER_VIEW構造体で要素のサイズを入れるのに必要
@@ -41,7 +49,9 @@ unsafe impl Sync for CpID3D12PipelineState {}
 pub struct CpD3D12_RESOURCE_BARRIER(pub *mut D3D12_RESOURCE_BARRIER);
 pub struct CpEventW(*mut c_void);
 
-
+pub struct TgD3d12TextureCopyLocation {
+    pub d3d12_texture_copy_location:D3D12_TEXTURE_COPY_LOCATION,
+}
 impl<T,S> CpID3D12Resource<T, S> {
     ///mapをするよ。D3D12_RANGEは現状使えないので注意。
     pub fn cp_map(mut self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>) -> Result<CpID3D12Resource<T, &'static mut T>, HRESULT> {
@@ -94,9 +104,16 @@ impl<T,S> CpID3D12Resource<T, S> {
 
 impl<T> CpID3D12Resource<T,&'static mut [T]> {
     pub fn cp_vec_map(self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>,vector:&Vec<T>)-> Result<CpID3D12Resource<T, &'static mut [T]>, HRESULT>{
+        self.tg_array_map(subresource, pReadRangeOpt, vector.len())
+    }
+    pub fn tg_slice_map(self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>, slice:&[T]) -> Result<CpID3D12Resource<T, &'static mut [T]>, HRESULT>{
+        self.tg_array_map(subresource, pReadRangeOpt, slice.len())
+    }
+    pub fn tg_array_map(self, subresource: UINT, pReadRangeOpt: Option<D3D12_RANGE>, length:usize)-> Result<CpID3D12Resource<T, &'static mut [T]>, HRESULT>{
+        //todo:リソースの解放をうまいことしたい。RC型とかが使えるか
         let root_parameter_index = self.root_parameter_index.clone();
         let tg_resource =  self.cp_map(subresource, pReadRangeOpt)?;
-        let resource = unsafe { std::slice::from_raw_parts_mut(tg_resource.mapvalue.unwrap(), vector.len()) };
+        let resource = unsafe { std::slice::from_raw_parts_mut(tg_resource.mapvalue.unwrap(), length) };
         let tg_resource = CpID3D12Resource{
             interface: tg_resource.interface,
             bytesize: tg_resource.bytesize,
@@ -238,4 +255,53 @@ impl CpEventW{
     pub fn cp_CloseHandlet(&mut self) -> bool {
         unsafe { CloseHandle(self.0).intobool() }
     }
+}
+
+/// # コピーしたいテクスチャの情報を記述するよ
+/// * `TgD3d12TextureCopyTypeSubresourceIndex` - コピーしたいサブリソースの番号を入れる
+/// * `TgD3d12TextureCopyTypePlacedFootprint` - コピーしたいバッファの開始位置と、そのバッファのリソースをどのように解釈するかを示した[D3D12_SUBRESOURCE_FOOTPRINT](https://docs.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_subresource_footprint)構造体を入れる
+pub enum TgD3d12TextureCopyType {
+    TgD3d12TextureCopyTypeSubresourceIndex { subresource_index:u32},
+    TgD3d12TextureCopyTypePlacedFootprint { _offset: u64, footprint: D3D12_SUBRESOURCE_FOOTPRINT}
+}
+impl TgD3d12TextureCopyLocation {
+
+    /// # テクスチャの情報を記述するよ
+    /// * `desc_type` - リソースの種別
+    /// * `resource` - リソース本体
+    /// ## **<u><span style="color: red; ">注意！</span>リソースはコマンドリストの実行が終わるまで解放しないこと！</u>**
+    pub fn new<T: 'static,S: 'static>(desc_type: TgD3d12TextureCopyType, resource:&mut CpID3D12Resource<T, S>) -> TgD3d12TextureCopyLocation {
+        match desc_type {
+            TgD3d12TextureCopyType::TgD3d12TextureCopyTypeSubresourceIndex { subresource_index } => {
+                TgD3d12TextureCopyLocation::tg_subresource_index(subresource_index,resource)
+            }
+            TgD3d12TextureCopyType::TgD3d12TextureCopyTypePlacedFootprint { _offset, footprint } => {
+                TgD3d12TextureCopyLocation::tg_placed_footprint(D3D12_PLACED_SUBRESOURCE_FOOTPRINT{ Offset: _offset, Footprint: footprint}, resource)
+            }
+        }
+    }
+    pub fn tg_subresource_index<T: 'static,S: 'static>(SubresourceIndex:u32, resource:&mut CpID3D12Resource<T, S>) ->TgD3d12TextureCopyLocation{
+        TgD3d12TextureCopyLocation{
+            d3d12_texture_copy_location: D3D12_TEXTURE_COPY_LOCATION {
+                pResource: unsafe{ resource.interface.as_mut().unwrap() },
+                Type: D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+                u: unsafe{
+                    std::mem::transmute::<_,D3D12_TEXTURE_COPY_LOCATION_u>([SubresourceIndex;8])
+                }
+            }
+        }
+    }
+
+    pub fn tg_placed_footprint<T: 'static,S: 'static>(Footprint: D3D12_PLACED_SUBRESOURCE_FOOTPRINT, resource:&mut CpID3D12Resource<T, S>) ->TgD3d12TextureCopyLocation{
+        TgD3d12TextureCopyLocation{
+            d3d12_texture_copy_location: D3D12_TEXTURE_COPY_LOCATION {
+                pResource: unsafe{ resource.interface.as_mut().unwrap() },
+                Type: D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT ,
+                u: unsafe{
+                    std::mem::transmute::<_,_>(Footprint)
+                }
+            }
+        }
+    }
+
 }

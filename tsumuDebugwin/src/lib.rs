@@ -110,7 +110,7 @@ impl TsumugiObject for TsumguiWindow {
             gl_attr.set_context_profile(GLProfile::Core);
 
             let window = video_subsystem
-                .window("Hello imgui-rs!", 1280, 720)
+                .window("つむぎのデバッグウィンドウ", 1280, 720)
                 .allow_highdpi()
                 .opengl()
                 .position_centered()

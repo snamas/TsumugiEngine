@@ -15,3 +15,4 @@ tsumugiShaderStock = {path = "../tsumugiShaderStock" }
 tsumuObject = {path = "../tsumuObject" }
 tsumugiSimpleHashMap  = {path = "../tsumugiSimpleHashMap" }
 nalgebra = "0.24.0"
+image = "0.24.3"

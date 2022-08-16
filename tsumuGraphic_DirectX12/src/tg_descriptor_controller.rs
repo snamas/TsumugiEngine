@@ -21,7 +21,7 @@ pub struct TgID3D12DescriptorHeapList{
 }
 #[derive(Clone)]
 pub struct TgID3D12DescriptorHeap<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> {
-    pub(crate) value: *const ID3D12DescriptorHeap,
+    pub(crate) value: *mut ID3D12DescriptorHeap,
     pub(crate) dynamic_descriptor_number: u32,
     pub(crate) static_descriptor_number: u32,
     pub(crate) align_size: UINT,
@@ -93,6 +93,7 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
             align_size: self.align_size,
         };
     }
+    ///indexに入れた場所のメモリを取得するよ。
     fn get_descriptor_handle(&self, index: u32) -> TgDescriptorHandle<heap_type> {
         TgDescriptorHandle {
             cpu_hanle: self.tg_d3d12cpudescriptor_handle.tg_get_pointer(index),
@@ -103,6 +104,7 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
             descriptor_controller: self.descriptor_controller.clone(),
         }
     }
+    ///TgDescriptorHandleを返す関数だよ。ただしメモリの場所は適当。Noneの場合、すべてのTgDescriptorHandleを使い切ったことになる。
     pub fn allocate_dynamic_descriptor_handle(&mut self) -> Option<TgDescriptorHandle<heap_type>> {
         let index = { self.descriptor_controller.lock().unwrap().dynamic_free_list.pop()? };
         Some(self.get_descriptor_handle(index))

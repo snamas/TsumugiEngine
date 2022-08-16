@@ -5,7 +5,7 @@ use winapi::Interface;
 use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB};
 use winapi::shared::minwindef::{TRUE, UINT};
 use winapi::shared::winerror::{HRESULT, NOERROR};
-use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState};
+use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY};
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
 use tsugumi_windows_library::vector_Hresult;
@@ -59,10 +59,10 @@ impl TsumuGraphicObject {
         self.fetch_materialdata(&tc.tp, &mut tg_id3d12descriptor_heap_list);
         self.fetch_figuredata(&tc.tp);
         thread::spawn(move || {
-            let tg_device = tg_directx.tg_device;
+            let tg_device = tg_directx.tg_device.clone();
+            let mut tg_command_queue = tg_directx.tg_queue.clone();
             let tg_factory = CpIDXGIFactory6::new();
-            let mut tg_command_queue = (*tg_device).cp_create_command_queue(None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
-            let tg_swapchain = tg_factory.cp_create_swap_chain_for_hwnd::<FRAME_COUNT>(&mut tg_command_queue, &mut thread_handle_window, None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
+            let tg_swapchain = tg_factory.cp_create_swap_chain_for_hwnd::<FRAME_COUNT>(&mut *tg_command_queue.lock().unwrap(), &mut thread_handle_window, None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             drop(thread_handle_window);
             let mut currentindex = tg_swapchain.cp_get_current_back_buffer_index();
             let mut currentindex_usize = currentindex as usize;
@@ -86,16 +86,21 @@ impl TsumuGraphicObject {
             let mut event = CpEventW::cp_create_event_w(None, false, false, None).unwrap();
             tg_command_list.tg_close();
             loop {
-                tg_command_allocators.iter().map(|alloc|{alloc.cp_reset()}).collect::<Vec<_>>();
-                tg_command_list.tg_reset(&mut tg_command_allocators, &mut None);
+                //最初にロックしておく
+                let command_queue = tg_command_queue.lock().unwrap();
+                {
+                    tg_command_allocators.iter().map(|alloc| { alloc.cp_reset() }).collect::<Vec<_>>();
+                    tg_command_list.tg_reset(&mut tg_command_allocators, &mut None);
+                }
                 tg_command_list.tg_omset_render_targets(0..3,&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
+                tg_command_list.tg_set_descriptor_heaps(&mut tg_id3d12descriptor_heap_list);
                 let mut transition_barrier_desc = D3D12_RESOURCE_TRANSITION_BARRIER {
                     pResource: tg_resource_rendertarges[currentindex_usize].interface,
                     Subresource: 0,
                     StateBefore: D3D12_RESOURCE_STATE_PRESENT,
                     StateAfter: D3D12_RESOURCE_STATE_RENDER_TARGET,
                 };
-                let barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
+                let mut barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
                 tg_command_list.0[0].cp_resource_barrier(&vec![barrier_desc]);
                 tg_command_list.0[0].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 1., 1.], None);
                 tg_command_list.0[0].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
@@ -106,10 +111,10 @@ impl TsumuGraphicObject {
                 let barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
                 tg_command_list.0[2].cp_resource_barrier(&vec![barrier_desc]);
                 tg_command_list.tg_close();
-                tg_command_queue.cp_execute_command_lists(&mut tg_command_list.0);
+                command_queue.cp_execute_command_lists(&mut tg_command_list.0);
                 tg_swapchain.cp_present(0, 0);
                 tg_fence.cp_increment_counter(1);
-                tg_command_queue.cp_signal(&mut tg_fence);
+                command_queue.cp_signal(&mut tg_fence);
                 if (!tg_fence.cp_is_reach_fance_value()) {
                     tg_fence.cp_set_event_on_completion(&mut event);
                     event.cp_wait_for_single_object(INFINITE);

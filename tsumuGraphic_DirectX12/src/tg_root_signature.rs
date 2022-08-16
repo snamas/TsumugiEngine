@@ -11,7 +11,7 @@ pub struct TgD3d12RootSignatureDesc(pub(crate) D3D12_ROOT_SIGNATURE_DESC);
 pub struct TgD3d12RootParameter(pub(crate) D3D12_ROOT_PARAMETER);
 
 pub struct TgD3d12RootParameters(pub(crate) Vec<D3D12_ROOT_PARAMETER>);
-
+//todo:いままでenumを使っていたところを少しづつ変えていこう
 union D3d12RootParameterUnion {
     d3d12_root_descriptor_table: D3D12_ROOT_DESCRIPTOR_TABLE,
     d3d12_root_descriptor: D3D12_ROOT_DESCRIPTOR,
@@ -20,7 +20,7 @@ union D3d12RootParameterUnion {
 
 impl TgD3d12RootParameter {
     ///Descriptor Tableを作るよ。
-    pub(crate) fn create_descriptor_table(table: Vec<D3D12_DESCRIPTOR_RANGE>, d3d12_shader_visibility:D3D12_SHADER_VISIBILITY) -> D3D12_ROOT_PARAMETER {
+    pub(crate) fn create_descriptor_table(table: &Vec<D3D12_DESCRIPTOR_RANGE>, d3d12_shader_visibility:D3D12_SHADER_VISIBILITY) -> D3D12_ROOT_PARAMETER {
         D3D12_ROOT_PARAMETER {
             ParameterType: D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
             u: unsafe {
@@ -63,7 +63,7 @@ impl TgD3d12RootParameters {
     pub fn with_capacity(capacity: usize) -> Self {
         TgD3d12RootParameters { 0: Vec::with_capacity(capacity) }
     }
-    pub fn append_descriptor_table(&mut self, table: Vec<D3D12_DESCRIPTOR_RANGE>, d3d12_shader_visibility:D3D12_SHADER_VISIBILITY) {
+    pub fn append_descriptor_table(&mut self, table: &Vec<D3D12_DESCRIPTOR_RANGE>, d3d12_shader_visibility:D3D12_SHADER_VISIBILITY) {
         self.0.push(TgD3d12RootParameter::create_descriptor_table(table, d3d12_shader_visibility));
     }
     pub fn append_descriptor_cbv(&mut self, buffer: D3D12_ROOT_DESCRIPTOR, d3d12_shader_visibility:D3D12_SHADER_VISIBILITY) {

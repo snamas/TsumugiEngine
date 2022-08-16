@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod gpu_figure_store;
 mod tg_directx;
 mod tg_device;
@@ -13,12 +15,14 @@ mod tsumuGPUStoreList;
 mod material_loader;
 mod tg_root_signature;
 mod tg_sampler;
+mod tg_buffer_uploader;
 
 use std::ops::DerefMut;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::collections::HashMap;
+use std::io::Error;
 use std::thread::sleep;
 use std::time::Duration;
 use winapi::_core::ptr::null_mut;
@@ -33,6 +37,7 @@ use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControl
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumugi::signal::TsumugiSignal;
 use tsumugiWindowController::window_hander_procedure::ArcHWND;
+use crate::tg_command_queue::CpID3D12CommandQueue;
 use crate::tg_device::TgID3D12Device;
 use crate::tsumuGPUStoreList::TsumuGPUStoreList;
 
@@ -40,7 +45,8 @@ static CONTROLLER_NAME: &str = "tsumuGraphicDx12";
 #[derive(Clone)]
 pub struct TsumuGraphicObject {
     directx_store: TsumuGPUStoreList,
-    pub(crate) tg_device :Arc<TgID3D12Device>
+    pub(crate) tg_device :Arc<TgID3D12Device>,
+    pub(crate) tg_queue :Arc<Mutex<CpID3D12CommandQueue>>,
 }
 
 impl TsumuGraphicObject {
@@ -67,8 +73,9 @@ impl TsumugiObject for TsumuGraphicObject{
 pub fn spown_direct_x12_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
     let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
     let mut Device = Arc::new(TgID3D12Device::new());
+    let mut tg_command_queue = Arc::new(Mutex::new((*Device).cp_create_command_queue(None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) })));
     newtc.set_objects(vec![
-        Box::new(TsumuGraphicObject { directx_store: TsumuGPUStoreList { list: Arc::new(Mutex::new(Default::default())) }, tg_device: Device }),
+        Box::new(TsumuGraphicObject { directx_store: TsumuGPUStoreList { list: Arc::new(Mutex::new(Default::default())) }, tg_device: Device, tg_queue: tg_command_queue }),
     ]);
     return newtc;
 }

@@ -37,7 +37,7 @@ pub struct FigureDataLayer {
 ///マテリアル層の下にはオブジェクト層がある
 pub struct MaterialLayer {
     // todo:マテリアルが任意に消せるようにしたい。
-    pub(crate) material: TsumuHashMap<(CpID3D12PipelineState, CpID3D12RootSignature, MaterialCBV)>,
+    pub(crate) material: TsumuHashMap<(CpID3D12PipelineState, CpID3D12RootSignature, MaterialCBV,MaterialDescTable)>,
     pub(crate) object_layer: HashMap<u64, Tsumugi3DObject>,
 }
 
@@ -47,11 +47,18 @@ pub struct MaterialCBV(
 unsafe impl Send for MaterialCBV {}
 unsafe impl Sync for MaterialCBV {}
 
+
+pub struct MaterialDescTable(
+    pub Vec<(CpID3D12Resource<u8, &'static mut [u8]>, TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>)>
+);
+unsafe impl Send for MaterialDescTable {}
+unsafe impl Sync for MaterialDescTable {}
+
 impl TsumuGPUFigureDataStore {
     ///3DデータをDirectX12用にロードするよ。TsumugiVertexBinaryが可変参照で必要だけど、これは変わらないよ。
     pub fn load(data: &mut TsumugiVertexBinary, tg_id3d12device: &TgID3D12Device) -> Vec<Self> {
         data.vertex.iter().zip(data.index.iter()).zip(data.shader_input_attribute.iter()).map(|((vertex, index), attributes)| {
-            let mut CpVertResource = tg_id3d12device.cp_create_buffer_resource(0, vertex).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
+            let mut CpVertResource = tg_id3d12device.cp_create_buffer_resource_from_vec(0, vertex).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
             //todo:これDropするときに値が消去されないか心配
             let mut mapvertdata = CpVertResource.cp_vec_map(0, None, vertex).unwrap();
             mapvertdata.mapvalue.as_mut().unwrap().copy_from_slice(&vertex);

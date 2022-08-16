@@ -54,12 +54,13 @@ impl TsumuGraphicObject {
     pub fn fetch_materialdata(&self,tc:&TsumugiPortal,descriptor_heap:&mut TgID3D12DescriptorHeapList){
         let thread_list = self.directx_store.list.clone();
         let thread_device = self.tg_device.clone();
+        let thread_queue = self.tg_queue.clone();
         let mut thread_descriptor_heap = descriptor_heap.clone();
         //todo:ここ読み取りするアンテナが一つなら出来るけど複数読み取りで正確にマテリアルが同期されない可能性があるよ
         let material_antenna = TsumugiParcelReceptorNoVal::<TsumugiMaterial>::new().subscribe(Arc::new(move|parcel|{
             let parcel = &parcel.parcel.clone().unwrap();
             //todo:ディスクリプタヒープを無駄に更新してしまう可能性から、マテリアルを新規にロードするか、すでにロードされていたら、アップデートにするかの選択をさせておきたい。ディスクリプタハンドルの更新だけですむからお得？
-            let pipeline = parcel.load(&thread_device,&mut thread_descriptor_heap.clone());
+            let pipeline = parcel.load(&thread_device,&thread_queue,&mut thread_descriptor_heap.clone());
             thread_list.lock().unwrap()
                 .entry(parcel.figure_path)
                 .or_insert(FigureDataLayer{ figure_data: None, material_layer: HashMap::new() })
@@ -102,8 +103,11 @@ impl TsumuGPUStoreList {
                     if let Some(material) =  figuredata.material_layer.get_mut(&0){
                         tg_command_list[0].cp_set_pipeline_states(&mut material.material.vector[0].as_mut().unwrap().0);
                         tg_command_list[0].cp_set_graphics_root_signature(&mut material.material.vector[0].as_mut().unwrap().1);
-                        for (material_resource,descriptorHandle) in &mut material.material.vector[0].as_mut().unwrap().2.0{
+                        for (material_resource,descriptorHandle) in &material.material.vector[0].as_mut().unwrap().2.0{
                             tg_command_list[0].tg_set_graphics_root_constant_buffer_view(material_resource);
+                        }
+                        for (material_resource,descriptorHandle) in &material.material.vector[0].as_mut().unwrap().3.0{
+                            tg_command_list[0].tg_set_graphics_root_descriptor_table(material_resource,descriptorHandle);
                         }
                         tg_command_list[0].cp_iaset_primitive_topology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                         tg_command_list[0].cp_iaset_vertex_buffers(0, &vec![storedata.vertex_view]);
