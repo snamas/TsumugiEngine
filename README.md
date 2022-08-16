@@ -10,7 +10,7 @@
 ### tsumuObject
 オブジェクトの場所や状態を管理するライブラリ
 ### tsumugiSimpleHashMap
-ハッシュマップと配列を組み合わせることで、マテリアルやオブジェクを素早く回せるようなHashMapライブラリ
+ハッシュマップと配列を組み合わせることで、マテリアルやオブジェクを素早く回せるようなリストが記述されているライブラリ
 ### tsumuGraphic_DirectX12
 DirectX12を用いた描画エンジン（Windows専用）
 ### tsumugiKeyboardInput
@@ -19,4 +19,4 @@ DirectX12を用いた描画エンジン（Windows専用）
 ウィンドウを生成したり管理するようなライブラリ（Windows専用）
 ### tsumuDebugwin
 imguiを用いたデバッグ用ライブラリ（Windows専用）
-内部でsdl2を用いているため、[cargo-vcpkg](https://crates.io/crates/cargo-vcpkg "cargo-vcpkg")に依存
+内部でvcpkgを用いているため、[cargo-vcpkg](https://crates.io/crates/cargo-vcpkg "cargo-vcpkg")に依存
