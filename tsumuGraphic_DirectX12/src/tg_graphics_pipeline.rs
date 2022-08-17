@@ -3,7 +3,7 @@ use winapi::um::d3d12::{D3D12_GRAPHICS_PIPELINE_STATE_DESC, D3D12_SHADER_BYTECOD
 use winapi::shared::dxgitype::DXGI_SAMPLE_DESC;
 use winapi::_core::ptr::{null_mut, null};
 use winapi::shared::minwindef::{FALSE, TRUE, UINT};
-use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_UNKNOWN};
+use winapi::shared::dxgiformat::{DXGI_FORMAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_UNKNOWN};
 use tsumugiShaderStock::TsumugiShader;
 
 #[derive(Clone)]
@@ -34,6 +34,14 @@ impl TgD3d12GraphicsPipeline {
     }
     pub fn input_layout(mut self, inputelements:Vec<D3D12_INPUT_ELEMENT_DESC>) ->Self{
         self.0.InputLayout = D3D12_INPUT_LAYOUT_DESC{ pInputElementDescs: inputelements.as_ptr(), NumElements: inputelements.len() as u32 };
+        self
+    }
+    pub fn depth_stencil(mut self, depth_stencil_desc:D3D12_DEPTH_STENCIL_DESC) ->Self{
+        self.0.DepthStencilState = depth_stencil_desc;
+        self
+    }
+    pub fn dsvformat(mut self, format:DXGI_FORMAT) ->Self{
+        self.0.DSVFormat = format;
         self
     }
 }

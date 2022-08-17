@@ -22,7 +22,7 @@ pub struct TsumugiMaterial {
     pub material:Material,
     ///マテリアルの固有の番号。これが違うと異なるマテリアルと認識される
     pub material_element_id:usize,
-    ///マテリアルの名前。
+    ///マテリアルの名前。現状なにも起こらない
     pub material_name: &'static str,
 }
 #[derive(Clone)]

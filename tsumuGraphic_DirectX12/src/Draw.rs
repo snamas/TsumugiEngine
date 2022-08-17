@@ -4,8 +4,9 @@ use std::thread;
 use winapi::Interface;
 use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB};
 use winapi::shared::minwindef::{TRUE, UINT};
+use winapi::shared::windef::RECT;
 use winapi::shared::winerror::{HRESULT, NOERROR};
-use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY};
+use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY, D3D12_CLEAR_FLAG_DEPTH};
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
 use tsugumi_windows_library::vector_Hresult;
@@ -45,8 +46,8 @@ impl TsumuGraphicObject {
             node_mask: 0
         }).unwrap();
         let mut tg_descriptor_dsv = self.tg_device.cp_create_descriptor_heap::<D3D12_DESCRIPTOR_HEAP_TYPE_DSV>(TgD3d12DescriptorHeapDesc {
-            dynamic_descriptors: 512,
-            static_descriptors: 512,
+            dynamic_descriptors: 1,
+            static_descriptors: 1,
             flags: D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
             node_mask: 0
         }).unwrap();
@@ -63,6 +64,7 @@ impl TsumuGraphicObject {
             let mut tg_command_queue = tg_directx.tg_queue.clone();
             let tg_factory = CpIDXGIFactory6::new();
             let tg_swapchain = tg_factory.cp_create_swap_chain_for_hwnd::<FRAME_COUNT>(&mut *tg_command_queue.lock().unwrap(), &mut thread_handle_window, None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) });
+            let rect:RECT = thread_handle_window.clone().0.clone().lock().unwrap().tw_get_client_rect();
             drop(thread_handle_window);
             let mut currentindex = tg_swapchain.cp_get_current_back_buffer_index();
             let mut currentindex_usize = currentindex as usize;
@@ -82,6 +84,10 @@ impl TsumuGraphicObject {
                 };
                 tg_device.cp_create_render_target_view(&mut tg_resource_rendertarges[i], Some(view_desc), &tg_handle_rtvs[i]);
             }
+            let mut depth_resorce = tg_device.tg_create_depth_stencil_resource(0, rect.right, rect.bottom).unwrap();
+            let mut tg_handle_dsv = tg_id3d12descriptor_heap_list.dsv.allocate_dynamic_descriptor_handle().unwrap();
+            tg_device.tg_create_depth_stencil_view(&mut depth_resorce,&tg_handle_dsv);
+
             let mut tg_fence = tg_device.cp_create_fence(1, D3D12_FENCE_FLAG_NONE).unwrap();
             let mut event = CpEventW::cp_create_event_w(None, false, false, None).unwrap();
             tg_command_list.tg_close();
@@ -92,7 +98,7 @@ impl TsumuGraphicObject {
                     tg_command_allocators.iter().map(|alloc| { alloc.cp_reset() }).collect::<Vec<_>>();
                     tg_command_list.tg_reset(&mut tg_command_allocators, &mut None);
                 }
-                tg_command_list.tg_omset_render_targets(0..3,&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
+                tg_command_list.tg_omset_render_targets(0..3,&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, Some(&tg_handle_dsv.cpu_hanle));
                 tg_command_list.tg_set_descriptor_heaps(&mut tg_id3d12descriptor_heap_list);
                 let mut transition_barrier_desc = D3D12_RESOURCE_TRANSITION_BARRIER {
                     pResource: tg_resource_rendertarges[currentindex_usize].interface,
@@ -103,6 +109,7 @@ impl TsumuGraphicObject {
                 let mut barrier_desc = CpD3D12_RESOURCE_BARRIER::new(CpD3d12ResourceTransitionBarrier { d3d12_resource_transition_barrier: transition_barrier_desc, flags: 0 });
                 tg_command_list.0[0].cp_resource_barrier(&vec![barrier_desc]);
                 tg_command_list.0[0].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 1., 1.], None);
+                tg_command_list.0[0].tg_clear_depth_stencil_view(&tg_handle_dsv,D3D12_CLEAR_FLAG_DEPTH , None);
                 tg_command_list.0[0].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
                 tg_directx.directx_store.draw_figures(&mut tg_command_list.0[1..2]);
 

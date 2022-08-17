@@ -2,7 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::ops::Range;
 use std::ptr::null_mut;
 use winapi::shared::minwindef::UINT;
-use winapi::um::d3d12::{D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,D3D12_BOX, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_INDEX_BUFFER_VIEW, D3D12_PRIMITIVE_TOPOLOGY, D3D12_RECT, D3D12_RESOURCE_BARRIER, D3D12_VERTEX_BUFFER_VIEW, D3D12_VIEWPORT, ID3D12GraphicsCommandList, ID3D12PipelineState};
+use winapi::um::d3d12::{D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_BOX, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE, D3D12_INDEX_BUFFER_VIEW, D3D12_PRIMITIVE_TOPOLOGY, D3D12_RECT, D3D12_RESOURCE_BARRIER, D3D12_VERTEX_BUFFER_VIEW, D3D12_VIEWPORT, ID3D12GraphicsCommandList, ID3D12PipelineState, D3D12_CLEAR_FLAG_DEPTH, D3D12_CLEAR_FLAGS};
 use winapi::um::winnt::HRESULT;
 use tsugumi_windows_library::{HRESULTinto, vector_Hresult};
 use crate::tg_descriptor_controller::{TgDescriptorHandle, TgID3D12DescriptorHeap, TgID3D12DescriptorHeapList};
@@ -66,6 +66,15 @@ impl CpID3D12GraphicsCommandList {
         }
     }
 
+    pub fn tg_clear_depth_stencil_view(&self, descriptorhandle: &TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_DSV>,clear_flag:D3D12_CLEAR_FLAGS, pRects_opt: Option<&Vec<D3D12_RECT>>) {
+        let (NumRects, pRects): (u32, *const D3D12_RECT) = match pRects_opt {
+            Some(v) => { (v.len() as u32, v.as_ptr()) }
+            None => { (0, null_mut()) }
+        };
+        unsafe {
+            self.0.as_ref().unwrap().ClearDepthStencilView(descriptorhandle.cpu_hanle, clear_flag,1.0f32,0, NumRects, pRects)
+        }
+    }
     pub fn cp_rs_set_viewports(&self, pViewports: &Vec<D3D12_VIEWPORT>) {
         unsafe {
             self.0.as_ref().unwrap().RSSetViewports(pViewports.len() as u32, pViewports.as_ptr())

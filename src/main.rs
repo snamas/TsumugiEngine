@@ -66,9 +66,12 @@ impl TsumugiObject for ObjectA {
         dbg!(tc.tp.global_connect_tsumugi_controller.lock().unwrap().keys());
         self.sample_box_object.create3d_object(&tc.tp);
         self.shapell_object.create3d_object(&tc.tp);
-        self.shapell.material.store_material(&tc.tp);
+        self.shapell.hair.store_material(&tc.tp);
+        self.shapell.blazer.store_material(&tc.tp);
+        self.shapell.body.store_material(&tc.tp);
+        self.shapell.clothes.store_material(&tc.tp);
         self.sample_box.material.store_material(&tc.tp);
-        let mut shapell_mat = self.shapell.material.clone();
+        let mut shapell_mat = self.shapell.hair.clone();
         let tp = tc.tp.clone();
         thread::spawn(move ||{
             let mut num = 0f32;

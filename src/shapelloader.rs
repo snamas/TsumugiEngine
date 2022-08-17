@@ -13,7 +13,10 @@ const MaterialID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 pub struct Shapell {
-    pub material: TsumugiMaterial,
+    pub hair: TsumugiMaterial,
+    pub blazer: TsumugiMaterial,
+    pub clothes: TsumugiMaterial,
+    pub body: TsumugiMaterial,
 }
 #[derive(Clone)]
 pub struct shapellbuffer{
@@ -130,6 +133,7 @@ impl ObjectLoader for Shapell {
             }
         }
         return Some(TsumugiVertexBinary {
+            //ここのobject_pathとfigure_pathは同じにすること!!!!!!!!!
             object_path: Path::new("Asset/shapell_Mtoon.vrm"),
             shader_input_attribute: attrlist,
             vertex: binarylist,
@@ -140,37 +144,21 @@ impl ObjectLoader for Shapell {
 
 impl Shapell {
     ///マテリアルを新しく作る時は過去作ったものとかぶらないようにしよう
-    fn new() -> Self {
-        //todo:データ構造が未定。既存のマテリアルから生成するという実態に即していない可能性がある。共通のマテリアルを使いたい場合と、別々のマテリアルにしたい場合とで分ける...Defaultなくしてnew()とspawn()だけにするかもしれん
-        Shapell {
-            material: TsumugiMaterial {
-                figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
-                shader_path_vs: ShapellShaderVS::load(),
-                shader_path_ps: ShapellShaderPS::load(),
-                shader_path_gs: None,
-                shader_path_hs: None,
-                shader_path_ds: None,
-                material: Material {
-                    texture: vec![],
-                    buffer: Vec::new(),
-                    buffersize: 0,
-                    attributes: vec![
-                        tsumuFigureStockCPU::Attribute::Position,
-                        tsumuFigureStockCPU::Attribute::Normal,
-                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
-                    ]
-                },
-                material_element_id: MaterialID.fetch_add(1, Ordering::SeqCst),
-                material_name: "ShapellMaterial"
-            },
-        }
+    //todo:データ構造が未定。既存のマテリアルから生成するという実態に即していない可能性がある。共通のマテリアルを使いたい場合と、別々のマテリアルにしたい場合とで分ける...Defaultなくしてnew()とspawn()だけにするかもしれん
+    fn spawn(&self)->Self{
+        let sp = self.clone();
+        sp.hair.material_element_id.wrapping_add(4);
+        sp.blazer.material_element_id.wrapping_add(4);
+        sp.clothes.material_element_id.wrapping_add(4);
+        sp.body.material_element_id.wrapping_add(4);
+        sp
     }
 }
 
 impl Default for Shapell {
     fn default() -> Self {
         Shapell {
-            material: TsumugiMaterial {
+            hair: TsumugiMaterial {
                 figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
                 shader_path_vs: ShapellShaderVS::load(),
                 shader_path_ps: ShapellShaderPS::load(),
@@ -180,12 +168,7 @@ impl Default for Shapell {
                 material: Material {
                     ///テクスチャを事前に生成しておこう。
                     texture: vec![
-                        Path::new("Asset/shapell_Mtoon_img0.png"),
-                        Path::new("Asset/shapell_Mtoon_img1.png"),
-                        Path::new("Asset/shapell_Mtoon_img2.png"),
-                        Path::new("Asset/shapell_Mtoon_img3.png"),
-                        Path::new("Asset/shapell_Mtoon_img4.png"),
-                        Path::new("Asset/shapell_Mtoon_img5.png")],
+                        Path::new("Asset/shapell_Mtoon_img0.png")],
                     //1.5の浮動小数点表現（リトルエンディアン）
                     buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
                     buffersize: 4,
@@ -198,6 +181,72 @@ impl Default for Shapell {
                 material_element_id: 0,
                 material_name: "ShapellMaterial",
             },
+            blazer: TsumugiMaterial {
+                figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
+                shader_path_vs: ShapellShaderVS::load(),
+                shader_path_ps: ShapellShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ds: None,
+                material: Material {
+                    ///テクスチャを事前に生成しておこう。
+                    texture: vec![
+                        Path::new("Asset/shapell_Mtoon_img1.png")],
+                    //1.5の浮動小数点表現（リトルエンディアン）
+                    buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
+                    buffersize: 4,
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal,
+                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
+                    ]
+                },
+                material_element_id: 1,
+                material_name: "ShapellMaterial",},
+            clothes: TsumugiMaterial {
+                figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
+                shader_path_vs: ShapellShaderVS::load(),
+                shader_path_ps: ShapellShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ds: None,
+                material: Material {
+                    ///テクスチャを事前に生成しておこう。
+                    texture: vec![
+                        Path::new("Asset/shapell_Mtoon_img2.png"),],
+                    //1.5の浮動小数点表現（リトルエンディアン）
+                    buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
+                    buffersize: 4,
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal,
+                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
+                    ]
+                },
+                material_element_id: 2,
+                material_name: "ShapellMaterial",},
+            body: TsumugiMaterial {
+                figure_path: Path::new("Asset/shapell_Mtoon.vrm"),
+                shader_path_vs: ShapellShaderVS::load(),
+                shader_path_ps: ShapellShaderPS::load(),
+                shader_path_gs: None,
+                shader_path_hs: None,
+                shader_path_ds: None,
+                material: Material {
+                    ///テクスチャを事前に生成しておこう。
+                    texture: vec![
+                        Path::new("Asset/shapell_Mtoon_img3.png")],
+                    //1.5の浮動小数点表現（リトルエンディアン）
+                    buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
+                    buffersize: 4,
+                    attributes: vec![
+                        tsumuFigureStockCPU::Attribute::Position,
+                        tsumuFigureStockCPU::Attribute::Normal,
+                        tsumuFigureStockCPU::Attribute::Texcoord(tsumuFigureStockCPU::Texcoord::f32)
+                    ]
+                },
+                material_element_id: 3,
+                material_name: "ShapellMaterial",}
         }
     }
 }

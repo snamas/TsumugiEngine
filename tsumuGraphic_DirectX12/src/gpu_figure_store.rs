@@ -31,7 +31,7 @@ unsafe impl Sync for TsumuGPUFigureDataStore {}
 ///データ層の下にはマテリアル層がある（マテリアルの配列サイズはデータのサイズと基本同じ。同じでない場合は０番が参照される。）
 pub struct FigureDataLayer {
     pub figure_data: Option<Vec<TsumuGPUFigureDataStore>>,
-    pub material_layer: HashMap<u64, MaterialLayer>,
+    pub material_layer: Option<MaterialLayer>,
 }
 
 ///マテリアル層の下にはオブジェクト層がある

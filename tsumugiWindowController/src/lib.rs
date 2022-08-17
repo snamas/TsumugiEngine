@@ -9,9 +9,11 @@ use std::thread::sleep;
 use std::time::Duration;
 use winapi::Interface;
 use winapi::shared::minwindef::TRUE;
+use winapi::shared::windef::RECT;
 use winapi::um::d3d12::D3D12GetDebugInterface;
 use winapi::um::d3d12sdklayers::ID3D12Debug;
 use winapi::um::wingdi::TextOutW;
+use winapi::um::winnt::LONG;
 use winapi::um::winuser::{FindWindowExW, FindWindowW, GetDC, InvalidateRect, PM_REMOVE, ReleaseDC, SW_SHOW, VK_CONTROL};
 use tsugumi_windows_library::wide_char;
 use tsumugi::antenna_chain::{TsumugiAntennaType, TsumugiReceptorChain};
@@ -32,14 +34,17 @@ static Controller_name: &str = "tsumugiWindowHandle";
 struct TsumugiWindowObject();
 
 static COUNT: AtomicU64 = AtomicU64::new(0);
-
+const WINDOW_WIDTH: u32 = 1280;
+const WINDOW_HEIGHT: u32 = 720;
 impl TsumugiObject for TsumugiWindowObject {
     fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
         let mut globalsender = tc.tp.global_channel_sender.pickup_channel_sender.clone();
         let mut globalreceptor = tc.tp.global_channel_sender.recept_channel_sender.clone();
         let mut localsender = tc.tp.local_channel_sender.pickup_channel_sender.clone();
         thread::spawn(move || {
-            let mut window_handle = TwHWND::new(None, None);
+            let mut window_handle = TwHWND::new(None,
+                                                Some(
+                                                    RECT { left: 0, top: 0, right: WINDOW_WIDTH as LONG, bottom: WINDOW_HEIGHT as LONG }));
             let mut arc_handle = Arc::new(Mutex::new(window_handle));
             (*arc_handle.lock().unwrap()).tw_show_window(SW_SHOW);
             let handle_dist = TsumugiParcelDistributor::new(ArcHWND { 0: arc_handle.clone() }).lifetime(TsumugiControllerItemLifeTime::Eternal);

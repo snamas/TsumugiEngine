@@ -5,9 +5,9 @@ use std::io;
 use std::io::{Error, Read};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use winapi::shared::dxgiformat::{DXGI_FORMAT_R16G16_UINT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT};
-use winapi::shared::minwindef::UINT;
-use winapi::um::d3d12::{D3D12_APPEND_ALIGNED_ELEMENT, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_RANGE, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_UPLOAD, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, D3D12_INPUT_ELEMENT_DESC, D3D12_INPUT_LAYOUT_DESC, D3D12_MEMORY_POOL_UNKNOWN, D3D12_ROOT_DESCRIPTOR, D3D12_ROOT_PARAMETER, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, D3D12_SHADER_VISIBILITY_ALL, D3D12_STATIC_SAMPLER_DESC, D3D12_TEX2D_SRV, D3D_ROOT_SIGNATURE_VERSION_1_0};
+use winapi::shared::dxgiformat::{DXGI_FORMAT_D32_FLOAT, DXGI_FORMAT_R16G16_UINT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT};
+use winapi::shared::minwindef::{FALSE, TRUE, UINT};
+use winapi::um::d3d12::{D3D12_APPEND_ALIGNED_ELEMENT, D3D12_COMPARISON_FUNC_LESS_EQUAL, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_STENCILOP_DESC, D3D12_DEPTH_WRITE_MASK_ALL, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_RANGE, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_UPLOAD, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, D3D12_INPUT_ELEMENT_DESC, D3D12_INPUT_LAYOUT_DESC, D3D12_MEMORY_POOL_UNKNOWN, D3D12_ROOT_DESCRIPTOR, D3D12_ROOT_PARAMETER, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, D3D12_SHADER_VISIBILITY_ALL, D3D12_STATIC_SAMPLER_DESC, D3D12_TEX2D_SRV, D3D_ROOT_SIGNATURE_VERSION_1_0};
 use winapi::um::winnt::HRESULT;
 use tsumuFigureStockCPU::{Attribute, Color, Joint, Texcoord, Weight};
 use tsumugiShaderStock::{Material, TsumugiMaterial, TsumugiShader};
@@ -104,11 +104,33 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
             let root_sig = tg_device.tg_serialize_create_root_signature(0, root_sig_desc, D3D_ROOT_SIGNATURE_VERSION_1_0).unwrap();
 
             let input = Self::trans_input_elements(&self.material.attributes);
+            let depth_stencli_desc = D3D12_DEPTH_STENCIL_DESC{
+                DepthEnable: TRUE,
+                DepthWriteMask: D3D12_DEPTH_WRITE_MASK_ALL,
+                DepthFunc: D3D12_COMPARISON_FUNC_LESS_EQUAL,
+                StencilEnable: FALSE,
+                StencilReadMask: 0,
+                StencilWriteMask: 0,
+                FrontFace: D3D12_DEPTH_STENCILOP_DESC {
+                    StencilFailOp: 0,
+                    StencilDepthFailOp: 0,
+                    StencilPassOp: 0,
+                    StencilFunc: 0
+                },
+                BackFace: D3D12_DEPTH_STENCILOP_DESC {
+                    StencilFailOp: 0,
+                    StencilDepthFailOp: 0,
+                    StencilPassOp: 0,
+                    StencilFunc: 0
+                }
+            };
             //todo:ここマテリアルの属性をいろいろ入れたいね（現在シェーダー入れるだけ）
             let mut tg_graphics_pipeline_state_desc = TgD3d12GraphicsPipeline::default()
                 .vertex_shader(&self.shader_path_vs)
                 .pixel_shader(&self.shader_path_ps)
-                .input_layout(Self::trans_input_elements(&self.material.attributes));
+                .input_layout(Self::trans_input_elements(&self.material.attributes))
+                .depth_stencil(depth_stencli_desc)
+                .dsvformat(DXGI_FORMAT_D32_FLOAT);
             tg_graphics_pipeline_state_desc.0.InputLayout = D3D12_INPUT_LAYOUT_DESC { pInputElementDescs: input.as_ptr(), NumElements: input.len() as u32 };
             if let Some(gs) = &self.shader_path_gs {
                 tg_graphics_pipeline_state_desc = tg_graphics_pipeline_state_desc.geometry_shader(gs);

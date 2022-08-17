@@ -40,7 +40,7 @@ impl TsumuGraphicObject {
                 ///todo:ここ非同期じゃないので長時間ロックに注意
                 thread_list.lock().unwrap()
                     .entry(parcel)
-                    .or_insert(FigureDataLayer{ figure_data: None, material_layer: HashMap::new() }).figure_data
+                    .or_insert(FigureDataLayer{ figure_data: None, material_layer: None }).figure_data
                     .get_or_insert(TsumuGPUFigureDataStore::load(recept.0.lock().unwrap().get_mut(parcel).unwrap(), &thread_device));
                 TsumugiControllerItemState::Fulfilled
             })).to_antenna().displayname("TsumugiReceptFigurePath").lifetime(TsumugiControllerItemLifeTime::Eternal);
@@ -63,10 +63,8 @@ impl TsumuGraphicObject {
             let pipeline = parcel.load(&thread_device,&thread_queue,&mut thread_descriptor_heap.clone());
             thread_list.lock().unwrap()
                 .entry(parcel.figure_path)
-                .or_insert(FigureDataLayer{ figure_data: None, material_layer: HashMap::new() })
-                .material_layer
-                .entry(parcel.material_element_id as u64)
-                .or_insert(MaterialLayer{ material: TsumuHashMap::new(), object_layer: Default::default() })
+                .or_insert(FigureDataLayer{ figure_data: None, material_layer: Option::None })
+                .material_layer.get_or_insert(MaterialLayer{ material: TsumuHashMap::new(), object_layer: Default::default() })
                 .material.overwrite_insert(parcel.material_element_id,pipeline);
 
             TsumugiControllerItemState::Fulfilled
@@ -98,16 +96,26 @@ impl TsumuGPUStoreList {
         };
         for mut figuredata in self.list.lock().unwrap().values_mut(){
             if let Some(figure) = &figuredata.figure_data{
-                for storedata in figure{
-                    //todo:ここ雑にマテリアル配列０番目を参照してるよ
-                    if let Some(material) =  figuredata.material_layer.get_mut(&0){
-                        tg_command_list[0].cp_set_pipeline_states(&mut material.material.vector[0].as_mut().unwrap().0);
-                        tg_command_list[0].cp_set_graphics_root_signature(&mut material.material.vector[0].as_mut().unwrap().1);
-                        for (material_resource,descriptorHandle) in &material.material.vector[0].as_mut().unwrap().2.0{
-                            tg_command_list[0].tg_set_graphics_root_constant_buffer_view(material_resource);
-                        }
-                        for (material_resource,descriptorHandle) in &material.material.vector[0].as_mut().unwrap().3.0{
-                            tg_command_list[0].tg_set_graphics_root_descriptor_table(material_resource,descriptorHandle);
+                if let Some(material) =  &mut figuredata.material_layer{
+                    figure.iter().enumerate().for_each(|(i,storedata)|{
+                        if let Some(material) = material.material.get_mut(i){
+                            tg_command_list[0].cp_set_pipeline_states(&mut material.0);
+                            tg_command_list[0].cp_set_graphics_root_signature(&mut material.1);
+                            for (material_resource,descriptorHandle) in &material.2.0{
+                                tg_command_list[0].tg_set_graphics_root_constant_buffer_view(material_resource);
+                            }
+                            for (material_resource,descriptorHandle) in &material.3.0{
+                                tg_command_list[0].tg_set_graphics_root_descriptor_table(material_resource,descriptorHandle);
+                            }
+                        }else{
+                            tg_command_list[0].cp_set_pipeline_states(&mut material.material.vector[0].as_mut().unwrap().0);
+                            tg_command_list[0].cp_set_graphics_root_signature(&mut material.material.vector[0].as_mut().unwrap().1);
+                            for (material_resource,descriptorHandle) in &material.material.vector[0].as_mut().unwrap().2.0{
+                                tg_command_list[0].tg_set_graphics_root_constant_buffer_view(material_resource);
+                            }
+                            for (material_resource,descriptorHandle) in &material.material.vector[0].as_mut().unwrap().3.0{
+                                tg_command_list[0].tg_set_graphics_root_descriptor_table(material_resource,descriptorHandle);
+                            }
                         }
                         tg_command_list[0].cp_iaset_primitive_topology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                         tg_command_list[0].cp_iaset_vertex_buffers(0, &vec![storedata.vertex_view]);
@@ -115,7 +123,7 @@ impl TsumuGPUStoreList {
                         tg_command_list[0].cp_rs_set_viewports(&vec![viewport]);
                         tg_command_list[0].cp_rs_set_scissor_rects(&vec![scissorRect]);
                         tg_command_list[0].cp_draw_indexed_instanced(storedata.index_len, 1, 0, 0, 0);
-                    }
+                    });
                 }
             }
         }

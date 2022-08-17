@@ -1,6 +1,6 @@
 use winapi::shared::windef::{HWND, RECT, HWND__, HICON, POINT};
 use winapi::shared::minwindef::{UINT, WPARAM, LPARAM, LRESULT, HINSTANCE, FALSE, BOOL, TRUE, ATOM};
-use winapi::um::winuser::{PostQuitMessage, DefWindowProcW, WNDCLASSEXW, CS_OWNDC, LoadCursorW, IDC_ARROW, AdjustWindowRectEx, WS_OVERLAPPEDWINDOW, CreateWindowExW, RegisterClassExW, CW_USEDEFAULT, UnregisterClassW, ShowWindow, MSG, PeekMessageW, TranslateMessage, DispatchMessageW, WM_QUIT, ShowWindowAsync, GetFocus, GetMessageW};
+use winapi::um::winuser::{PostQuitMessage, DefWindowProcW, WNDCLASSEXW, CS_OWNDC, LoadCursorW, IDC_ARROW, AdjustWindowRectEx, WS_OVERLAPPEDWINDOW, CreateWindowExW, RegisterClassExW, CW_USEDEFAULT, UnregisterClassW, ShowWindow, MSG, PeekMessageW, TranslateMessage, DispatchMessageW, WM_QUIT, ShowWindowAsync, GetFocus, GetMessageW, GetClientRect};
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::_core::ptr::null_mut;
 use winapi::um::winnt::LPCWSTR;
@@ -78,14 +78,14 @@ impl TwHWND {
                 RECT { left: 0, top: 0, right: WINDOW_WIDTH as i32, bottom: WINDOW_HEIGHT as i32 }
             }
         };
-        TwHWND::tw_adjust_window_rect_ex(window_rc);
+        TwHWND::tw_adjust_window_rect_ex(&mut window_rc);
         match TwHWND::tw_create_window_ex_w_result(_wndclassexw, window_rc) {
             Ok(v) => return v,
             Err(v) => panic!("{},{}", v, unsafe { GetLastError() })
         }
     }
-    fn tw_adjust_window_rect_ex(mut window_rc: RECT) {
-        unsafe { AdjustWindowRectEx(&mut window_rc, WS_OVERLAPPEDWINDOW, FALSE, 0); }
+    fn tw_adjust_window_rect_ex(window_rc: &mut RECT) {
+        unsafe { AdjustWindowRectEx(window_rc, WS_OVERLAPPEDWINDOW, FALSE, 0); }
     }
     fn tw_create_window_ex_w_result(_wndclassexw: TwWNDCLASSEXW, window_rc: RECT) -> Result<TwHWND, Error> {
         let handle = unsafe {
@@ -116,6 +116,18 @@ impl TwHWND {
     }
     pub fn tw_get_focus() ->HWND{
         unsafe { GetFocus() }
+    }
+    pub fn tw_get_client_rect(&mut self) ->RECT{
+        let mut rect:RECT = RECT{
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0
+        };
+        match unsafe {GetClientRect(self.0,&mut rect)}{
+            0 => {panic!("last OS error: {:?}", Error::last_os_error())},
+            _ => rect
+        }
     }
 }
 
