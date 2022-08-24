@@ -13,8 +13,8 @@ use winapi::um::d3d12::ID3D12CommandQueue;
 use winapi::um::unknwnbase::IUnknown;
 use winapi::um::winnt::HRESULT;
 use tsugumi_windows_library::HRESULTinto;
+use tsugumi_windows_library::tw_hwnd::ArcHWND;
 use crate::tg_command_queue::CpID3D12CommandQueue;
-use tsumugiWindowController::window_hander_procedure::ArcHWND;
 use crate::tg_dxgi_swapchain::CpIDXGISwapChain4;
 
 pub struct CpIDXGIFactory6(pub *const IDXGIFactory6);

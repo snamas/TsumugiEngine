@@ -37,20 +37,15 @@ pub struct FigureDataLayer {
 ///マテリアル層の下にはオブジェクト層がある
 pub struct MaterialLayer {
     // todo:マテリアルが任意に消せるようにしたい。
-    pub(crate) material: TsumuHashMap<(CpID3D12PipelineState, CpID3D12RootSignature, MaterialCBV,MaterialDescTable)>,
+    pub(crate) material: TsumuHashMap<(CpID3D12PipelineState, CpID3D12RootSignature, Vec<MaterialCBV>,Vec<MaterialDescTable>)>,
     pub(crate) object_layer: HashMap<u64, Tsumugi3DObject>,
 }
 
-pub struct MaterialCBV(
-    pub Vec<(CpID3D12Resource<u8, &'static mut [u8]>, TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>)>
-);
+pub(crate) struct MaterialCBV(pub(crate) CpID3D12Resource<u8, &'static mut [u8]>, pub(crate) TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>);
 unsafe impl Send for MaterialCBV {}
 unsafe impl Sync for MaterialCBV {}
 
-
-pub struct MaterialDescTable(
-    pub Vec<(CpID3D12Resource<u8, &'static mut [u8]>, TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>)>
-);
+pub(crate) struct MaterialDescTable(pub(crate) CpID3D12Resource<u8, &'static mut [u8]>,pub(crate) TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>);
 unsafe impl Send for MaterialDescTable {}
 unsafe impl Sync for MaterialDescTable {}
 

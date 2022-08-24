@@ -279,8 +279,18 @@ impl TgID3D12Device {
     /// * `buffer` - 送りたいデータ。アライメントは関数内で処理されるので、あらかじめアライメントを行う必要はない。
     /// * `heap_properties` - CPUとGPUがどう操作できるかを記述した構造体である[D3D12_HEAP_PROPERTIES](https://docs.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_heap_properties)を入れる
     /// * `root_parameter_index` - [SetGraphicsRootConstantBufferView()](https://docs.microsoft.com/ja-jp/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootconstantbufferview)に渡される配列の番号
-    pub fn tg_create_constant_resource(&self, buffer: &Vec<u8>, heap_properties: D3D12_HEAP_PROPERTIES, root_parameter_index: u64) -> Result<CpID3D12Resource<u8, &'static mut [u8]>, HRESULT> {
-        let allinedSize = buffer.len().div_euclid(256) * 256 + 256;
+    pub fn tg_create_constant_resource_from_vec(&self, buffer: &Vec<u8>, heap_properties: D3D12_HEAP_PROPERTIES, root_parameter_index: u64) -> Result<CpID3D12Resource<u8, &'static mut [u8]>, HRESULT> {
+        self.tg_create_constant_resource(&buffer.len(),heap_properties,root_parameter_index)
+    }
+    /// # 定数のリソースを作成する関数
+    /// * `buffer` - 送りたいデータ。アライメントは関数内で処理されるので、あらかじめアライメントを行う必要はない。
+    /// * `heap_properties` - CPUとGPUがどう操作できるかを記述した構造体である[D3D12_HEAP_PROPERTIES](https://docs.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_heap_properties)を入れる
+    /// * `root_parameter_index` - [SetGraphicsRootConstantBufferView()](https://docs.microsoft.com/ja-jp/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootconstantbufferview)に渡される配列の番号
+    pub fn tg_create_constant_resource_from_slice(&self, buffer: &[u8], heap_properties: D3D12_HEAP_PROPERTIES, root_parameter_index: u64) -> Result<CpID3D12Resource<u8, &'static mut [u8]>, HRESULT> {
+        self.tg_create_constant_resource(&buffer.len(),heap_properties,root_parameter_index)
+    }
+    fn tg_create_constant_resource(&self, bytes: &usize,heap_properties: D3D12_HEAP_PROPERTIES, root_parameter_index: u64) -> Result<CpID3D12Resource<u8, &'static mut [u8]>, HRESULT> {
+        let allinedSize = bytes.div_euclid(256) * 256 + 256;
 
         let resourceDesc = D3D12_RESOURCE_DESC {
             Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,

@@ -1,6 +1,9 @@
+pub mod tw_hwnd;
+pub mod tw_msg;
+pub mod window_hander_procedure;
+
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
-use winapi::ctypes::c_long;
 use winapi::shared::minwindef::{BOOL, TRUE, FALSE};
 use winapi::um::winnt::HRESULT;
 use winapi::shared::winerror::{NOERROR, S_OK};

@@ -32,6 +32,9 @@ pub struct CpID3D12Resource<T: 'static,S: 'static> {
     pub(crate) mapvalue:Option<S>,
     pub(crate) _phantom_s:PhantomData<T>
 }
+//まあ大丈夫でしょ
+unsafe impl<T: 'static,S: 'static> Send for CpID3D12Resource<T, S> {}
+unsafe impl<T: 'static,S: 'static> Sync for CpID3D12Resource<T, S> {}
 pub struct CpID3D12CommandAllocator(pub(crate) *mut ID3D12CommandAllocator);
 pub struct CpID3D12Fence {
     pub(crate) interface:  *mut ID3D12Fence,

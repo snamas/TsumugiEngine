@@ -15,6 +15,8 @@ use winapi::um::d3d12sdklayers::ID3D12Debug;
 use winapi::um::wingdi::TextOutW;
 use winapi::um::winnt::LONG;
 use winapi::um::winuser::{FindWindowExW, FindWindowW, GetDC, InvalidateRect, PM_REMOVE, ReleaseDC, SW_SHOW, VK_CONTROL};
+use tsugumi_windows_library::tw_hwnd::TwHWND;
+use tsugumi_windows_library::tw_msg::TwMSG;
 use tsugumi_windows_library::wide_char;
 use tsumugi::antenna_chain::{TsumugiAntennaType, TsumugiReceptorChain};
 use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemLifeTime, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject};
@@ -24,9 +26,8 @@ use tsumugi::parcel_receptor::TsumugiParcelReceptor;
 use tsumugi::parcelreceptor_novalue::TsumugiParcelReceptorNoVal;
 use tsumugi::signal::TsumugiSignal;
 use tsumugiKeyboardInput::Tsumukey;
-use crate::window_hander_procedure::{ArcHWND, TwHWND, TwMSG};
-
-pub mod window_hander_procedure;
+use tsugumi_windows_library::tw_hwnd::ArcHWND;
+use tsumugi::controller::TsumugiControllerItemLifeTime::Flash;
 
 static Controller_name: &str = "tsumugiWindowHandle";
 
@@ -63,7 +64,13 @@ impl TsumugiObject for TsumugiWindowObject {
                 tsumugi_key.tk_get_keyboard_state();
                 //2を押した。
                 if tsumugi_key.tk_key_status(87) {
-                    globalsender.send(TsumugiSignal::new("w").lifetime(TsumugiControllerItemLifeTime::Flash).into());
+                    let sender:TsumugiDistributor = TsumugiSignal::new("w").lifetime(Flash).into();
+                    globalsender.send(sender);
+                }
+                if(cpmsg.tw_has_wm_mousewheel_message()){
+                    let delta = cpmsg.tw_get_wheel_delta_wparam();
+                    let sender:TsumugiDistributor = TsumugiDistributor::TPDistributor(TsumugiParcelDistributor::new(delta).parcelname("mouse_wheel").displayname("mouse_wheel").lifetime(Flash));
+                    globalsender.send(sender);
                 }
             }
         });

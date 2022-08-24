@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 tsumugi = {path = "../tsumugi" }
-winapi = { version = "0.3.9", features = ["winuser","winerror","d3d12","dxgi1_6","dxgi1_5","dxgi1_4","dxgi1_3","dxgi1_2","dxgi","dxgiformat","dxgitype","d3dcompiler","winnt","unknwnbase","minwindef","windef","d3d12sdklayers","libloaderapi","d3dcommon","synchapi","winbase","handleapi","minwinbase"] }
+winapi = { version = "0.3.9", features = ["winuser","windowsx","winerror","d3d12","dxgi1_6","dxgi1_5","dxgi1_4","dxgi1_3","dxgi1_2","dxgi","dxgiformat","dxgitype","d3dcompiler","winnt","unknwnbase","minwindef","windef","d3d12sdklayers","libloaderapi","d3dcommon","synchapi","winbase","handleapi","minwinbase"] }
 tsugumi_windows_library =  {path = "../tsumugi_windows_library" }

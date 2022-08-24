@@ -1,11 +1,11 @@
-mod camera;
+pub mod camera;
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::atomic::Ordering::SeqCst;
-use nalgebra::{Point, Point2, Point3};
+use nalgebra::{Point, Point2, Point3, Translation, Translation3};
 use tsumuFigureStockCPU::TsumugiVertexBinary;
 use tsumugi::controller::{TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemState, TsumugiControllerTrait, TsumugiObject, TsumugiControllerItemLifeTime};
 use tsumugi::controller::TsumugiControllerItemLifeTime::{Eternal, Once};
@@ -196,7 +196,7 @@ pub fn spown_3d_object_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
     let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiObjectController { object_hashmap: Default::default(), object_key_origin: Arc::new(AtomicU64::new(0)) }),
-        Box::new(Camera::new())
+        Box::new(Camera::new(Translation3::new(0f32,0f32,-3f32), Default::default()))
     ]);
     return newtc;
 }

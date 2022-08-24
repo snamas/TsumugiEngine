@@ -1,5 +1,5 @@
 use std::any::{TypeId, Any};
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Sender, Receiver, SendError};
 use std::sync::{mpsc, Arc, Mutex, Condvar};
 use std::thread;
 use std::thread::{JoinHandle, sleep};
@@ -126,7 +126,14 @@ impl TsumugiControllerItemLifeTime {
         }
     }
 }
-
+impl TsumugiChannelSenders{
+    pub fn send(&self, parcel:TsumugiDistributor) -> Result<(), SendError<TsumugiDistributor>> {
+        self.pickup_channel_sender.send(parcel)
+    }
+    pub fn wait(&self, parcel:TsumugiAntennaType) -> Result<(), SendError<TsumugiAntennaType>> {
+        self.recept_channel_sender.send(parcel)
+    }
+}
 pub trait TsumugiObject {
     fn on_create(&self, tc: &TsumugiPortalPlaneLocal);
 }

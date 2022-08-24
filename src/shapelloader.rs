@@ -189,10 +189,8 @@ impl Default for Shapell {
                 shader_path_hs: None,
                 shader_path_ds: None,
                 material: Material {
-                    ///テクスチャを事前に生成しておこう。
                     texture: vec![
                         Path::new("Asset/shapell_Mtoon_img1.png")],
-                    //1.5の浮動小数点表現（リトルエンディアン）
                     buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
                     buffersize: 4,
                     attributes: vec![
@@ -211,10 +209,8 @@ impl Default for Shapell {
                 shader_path_hs: None,
                 shader_path_ds: None,
                 material: Material {
-                    ///テクスチャを事前に生成しておこう。
                     texture: vec![
                         Path::new("Asset/shapell_Mtoon_img2.png"),],
-                    //1.5の浮動小数点表現（リトルエンディアン）
                     buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
                     buffersize: 4,
                     attributes: vec![
@@ -233,10 +229,8 @@ impl Default for Shapell {
                 shader_path_hs: None,
                 shader_path_ds: None,
                 material: Material {
-                    ///テクスチャを事前に生成しておこう。
                     texture: vec![
                         Path::new("Asset/shapell_Mtoon_img3.png")],
-                    //1.5の浮動小数点表現（リトルエンディアン）
                     buffer: vec![vec![0x00,0x00,0xc0,0x3f]],
                     buffersize: 4,
                     attributes: vec![

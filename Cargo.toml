@@ -35,3 +35,4 @@ tsumuDebugwin  = {path = "tsumuDebugwin" }
 tsumugiShaderStock  = {path = "tsumugiShaderStock" }
 tsumugiSimpleHashMap  = {path = "tsumugiSimpleHashMap" }
 gltf = { version ="0.16", features = ["import"]}
+nalgebra = "0.24.0"

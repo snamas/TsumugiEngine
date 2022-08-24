@@ -1,3 +1,5 @@
+mod mouseInput;
+
 use std::io::Error;
 use winapi::um::winuser::{GetKeyboardLayout, GetKeyboardState, VK_RETURN, VK_SHIFT, VK_CONTROL, SetFocus, GetForegroundWindow, GetWindowThreadProcessId};
 use winapi::shared::minwindef::{HKL, PBYTE, BYTE, BOOL};

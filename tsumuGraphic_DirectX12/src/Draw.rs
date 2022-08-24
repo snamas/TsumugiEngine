@@ -6,18 +6,20 @@ use winapi::shared::dxgiformat::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A
 use winapi::shared::minwindef::{TRUE, UINT};
 use winapi::shared::windef::RECT;
 use winapi::shared::winerror::{HRESULT, NOERROR};
-use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY, D3D12_CLEAR_FLAG_DEPTH};
+use winapi::um::d3d12::{D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE, D3D12_RECT, D3D12_RENDER_TARGET_VIEW_DESC, D3D12_RENDER_TARGET_VIEW_DESC_u, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_TRANSITION_BARRIER, D3D12_RTV_DIMENSION_TEXTURE2D, D3D12_TEX2D_RTV, D3D12_VIEWPORT, D3D12GetDebugInterface, ID3D12PipelineState, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY, D3D12_CLEAR_FLAG_DEPTH, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, D3D_ROOT_SIGNATURE_VERSION_1_0};
 use winapi::um::d3d12sdklayers::{ID3D12Debug, ID3D12Debug1};
 use winapi::um::winbase::INFINITE;
+use tsugumi_windows_library::tw_hwnd::ArcHWND;
 use tsugumi_windows_library::vector_Hresult;
 use tsumugi::controller::TsumugiPortalPlaneLocal;
-use tsumugiWindowController::window_hander_procedure::ArcHWND;
+use crate::tg_camera::tsumugraphic_cameratrait;
 use crate::tg_descriptor_controller::{TgD3d12DescriptorHeapDesc, TgID3D12DescriptorHeapList};
 use crate::tg_device::TgID3D12Device;
 use crate::tg_directx::{CpD3D12_RESOURCE_BARRIER, CpEventW, CpID3D12CommandAllocator};
 use crate::tg_directx::CpD3d12ResourceBarrierDescType::CpD3d12ResourceTransitionBarrier;
 use crate::tg_dxgi_factory::CpIDXGIFactory6;
 use crate::tg_graphics_command_list::{CommandLists, CpID3D12GraphicsCommandList};
+use crate::tg_root_signature::TgD3d12RootSignatureDesc;
 use crate::TsumuGraphicObject;
 
 const FRAME_COUNT: usize = 2;
@@ -59,6 +61,8 @@ impl TsumuGraphicObject {
         };
         self.fetch_materialdata(&tc.tp, &mut tg_id3d12descriptor_heap_list);
         self.fetch_figuredata(&tc.tp);
+        let mut camera_resource = self.fetch_cameradata(&tc.tp, &mut tg_id3d12descriptor_heap_list);
+        let mut camera_thread_local = self.directx_store.camera.clone();
         thread::spawn(move || {
             let tg_device = tg_directx.tg_device.clone();
             let mut tg_command_queue = tg_directx.tg_queue.clone();
@@ -111,7 +115,9 @@ impl TsumuGraphicObject {
                 tg_command_list.0[0].cp_clear_render_target_view(&tg_handle_rtvs[currentindex_usize].cpu_hanle, &[0., 1., 1., 1.], None);
                 tg_command_list.0[0].tg_clear_depth_stencil_view(&tg_handle_dsv,D3D12_CLEAR_FLAG_DEPTH , None);
                 tg_command_list.0[0].cp_omset_render_targets(&vec![tg_handle_rtvs[currentindex_usize].cpu_hanle], false, None);
-                tg_directx.directx_store.draw_figures(&mut tg_command_list.0[1..2]);
+
+                camera_thread_local.lock().unwrap().update_camera_resource(&mut camera_resource);
+                tg_directx.directx_store.draw_figures(&mut tg_command_list.0[1..2],&mut camera_resource);
 
                 transition_barrier_desc.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
                 transition_barrier_desc.StateAfter = D3D12_RESOURCE_STATE_PRESENT;

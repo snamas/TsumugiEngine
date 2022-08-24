@@ -30,15 +30,17 @@ const JOINT: *const str = "JOINT\0";
 const WEIGHT: *const str = "WEIGHT\0";
 
 pub(crate) trait MaterialLoadDirectx12 {
-    fn load(&self, tg_device: &Arc<TgID3D12Device>,tg_commandqueue: &Arc<Mutex<CpID3D12CommandQueue>>,tg_descriptor_heap:&mut TgID3D12DescriptorHeapList) -> (CpID3D12PipelineState, CpID3D12RootSignature, MaterialCBV,MaterialDescTable);
+    fn load(&self, tg_device: &Arc<TgID3D12Device>,tg_commandqueue: &Arc<Mutex<CpID3D12CommandQueue>>,tg_descriptor_heap:&mut TgID3D12DescriptorHeapList) -> (CpID3D12PipelineState, CpID3D12RootSignature, Vec<MaterialCBV>,Vec<MaterialDescTable>);
     fn trans_input_elements(attributes: &Vec<Attribute>) -> Vec<D3D12_INPUT_ELEMENT_DESC>;
 }
 
 impl MaterialLoadDirectx12 for TsumugiMaterial {
-    fn load(&self, tg_device: &Arc<TgID3D12Device>,tg_commandqueue: &Arc<Mutex<CpID3D12CommandQueue>>, tg_descriptor_heap_list: &mut TgID3D12DescriptorHeapList) ->(CpID3D12PipelineState, CpID3D12RootSignature, MaterialCBV,MaterialDescTable) {
+    fn load(&self, tg_device: &Arc<TgID3D12Device>,tg_commandqueue: &Arc<Mutex<CpID3D12CommandQueue>>, tg_descriptor_heap_list: &mut TgID3D12DescriptorHeapList) ->(CpID3D12PipelineState, CpID3D12RootSignature, Vec<MaterialCBV>,Vec<MaterialDescTable>) {
         {
             let constant_buffer_len = self.material.buffer.len();
             let mut root_parameter:TgD3d12RootParameters = TgD3d12RootParameters::with_capacity(constant_buffer_len + 1);
+            //todo:カメラ用のディスクリプタを追加する。MSの公式(https://docs.microsoft.com/ja-jp/windows/win32/direct3d12/resource-binding-flow-of-control)では静的なディスクリプタテーブル使いなさいとのことだったので、将来的にそうする。
+            root_parameter.append_descriptor_cbv(D3D12_ROOT_DESCRIPTOR { ShaderRegister: 0, RegisterSpace: 1 }, D3D12_SHADER_VISIBILITY_ALL);
             let resources_cbv = self.material.buffer.iter().enumerate().map(|(i,buffer)|{
                 let descriptor_handle = tg_descriptor_heap_list.cbv_srv_uav.allocate_dynamic_descriptor_handle().unwrap_or_else(||{panic!("cbv allocate Failed")});
                 let heapProperties = D3D12_HEAP_PROPERTIES {
@@ -49,15 +51,15 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
                     VisibleNodeMask: 0,
                 };
                 //todo:ここでunwrapを使用しているので注意。例外をResultで返す機構が必要かも
-                let mut resource = tg_device.tg_create_constant_resource(buffer, heapProperties, (root_parameter.0.len()) as u64).unwrap().cp_vec_map(0, None, buffer).unwrap();
+                let mut resource = tg_device.tg_create_constant_resource_from_vec(buffer, heapProperties, (root_parameter.0.len()) as u64).unwrap().cp_vec_map(0, None, buffer).unwrap();
                 resource.mapvalue.as_mut().unwrap().copy_from_slice(buffer);
                 resource.cp_unmap(0,&None);
                 tg_device.tg_create_constant_buffer_view(&resource,&descriptor_handle);
                 {
                     root_parameter.append_descriptor_cbv(D3D12_ROOT_DESCRIPTOR { ShaderRegister: i as UINT, RegisterSpace: 0 }, D3D12_SHADER_VISIBILITY_ALL);
                 }
-                (resource,descriptor_handle)
-            }).collect::<Vec<(CpID3D12Resource<u8, &'static mut [u8]>,TgDescriptorHandle<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>)>>();
+                MaterialCBV(resource,descriptor_handle)
+            }).collect::<Vec<MaterialCBV>>();
 
 
             //todo:サンプラーはテクスチャの数確保しなくていい。
@@ -92,7 +94,7 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
                     root_parameter.append_descriptor_table(&ranges, D3D12_SHADER_VISIBILITY_ALL);
                     rangevec.push(ranges);
                 }
-                (texture_resource,descriptor_handle)
+                MaterialDescTable(texture_resource,descriptor_handle)
             }).collect::<Vec<_>>();
 
             batch.end(&*tg_commandqueue.lock().unwrap());
@@ -141,7 +143,7 @@ impl MaterialLoadDirectx12 for TsumugiMaterial {
             if let Some(ds) = &self.shader_path_ds {
                 tg_graphics_pipeline_state_desc = tg_graphics_pipeline_state_desc.domain_shader(ds);
             }
-            (tg_device.cp_create_graphics_pipeline_state(&mut tg_graphics_pipeline_state_desc,&root_sig).unwrap(),root_sig,MaterialCBV(resources_cbv),MaterialDescTable(resource_textures))
+            (tg_device.cp_create_graphics_pipeline_state(&mut tg_graphics_pipeline_state_desc,&root_sig).unwrap(),root_sig,resources_cbv,resource_textures)
         }
     }
 

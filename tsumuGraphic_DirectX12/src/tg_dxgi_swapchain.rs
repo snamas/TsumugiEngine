@@ -10,7 +10,6 @@ use winapi::um::d3d12::ID3D12Resource;
 use winapi::um::winnt::HRESULT;
 use tsugumi_windows_library::HRESULTinto;
 use crate::tg_command_queue::CpID3D12CommandQueue;
-use tsumugiWindowController::window_hander_procedure::ArcHWND;
 use crate::tg_directx::CpID3D12Resource;
 
 
@@ -57,7 +56,7 @@ impl<const N: usize> CpIDXGISwapChain4<N> {
         }
     }
     pub fn tg_get_buffers(&self)-> Result<CpID3D12Resource<UINT,UINT>, HRESULT> {
-        todo!();
+        todo!("出来てないよ！");
     }
     pub fn cp_get_current_back_buffer_index(&self) -> u32 {
         unsafe {
