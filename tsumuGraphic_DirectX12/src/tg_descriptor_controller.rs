@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::process::id;
 use std::ptr::drop_in_place;
@@ -55,12 +56,73 @@ pub struct TgDescriptorHandle<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> {
     index: u32,
     descriptor_controller: Arc<Mutex<TgDescriptorController>>,
 }
-
+#[derive(Copy, Clone)]
+struct Node{
+    no:u32,
+    count:u32,
+    is_empty:bool
+}
 pub struct TgDescriptorController {
-    pub(crate) dynamic_free_list: Vec<u32>,
-    pub(crate) static_position: u32,
+    list:VecDeque<Node>,
+    static_position: u32
 }
 
+impl TgDescriptorController {
+    pub(crate) fn new(dynamic_descriptors:u32) ->Self{
+        let mut deq = VecDeque::new();
+        deq.push_back(Node{
+            no: 0,
+            count: dynamic_descriptors,
+            is_empty: true
+        });
+        TgDescriptorController{ list:deq, static_position: 0 }
+    }
+    fn allocate(&mut self,quantity_to_allocate:u32) -> Option<u32>{
+        let find_node_index = self.list.iter_mut().position(|node|node.is_empty&&node.count >= quantity_to_allocate)?;
+        let node = self.list.get_mut(find_node_index)?;
+        node.is_empty = false;
+        let remain_quanta = node.count-quantity_to_allocate;
+        let node_number = node.no;
+        if remain_quanta>0 {
+            let remain_node = Node{
+                no: node.no + quantity_to_allocate,
+                count: remain_quanta,
+                is_empty: true
+            };
+            node.count = quantity_to_allocate;
+            self.list.insert(find_node_index+1,remain_node);
+        }
+        return Some(node_number);
+    }
+    fn free(&mut self,descriptor_number:u32)->Option<()>{
+        let find_node_index = self.list.iter_mut().position(|node|!node.is_empty&&node.no == descriptor_number)?;
+        let next_node = self.list.get(find_node_index+1).copied();
+        let prev_node = self.list.get(find_node_index-1).copied();
+        let node = self.list.get_mut(find_node_index)?;
+        node.is_empty = true;
+        match next_node{
+            None => {}
+            Some(next) => {
+                if(next.is_empty){
+                    node.count += next.count;
+                    self.list.remove(find_node_index+1);
+                }
+            }
+        }
+        let node = self.list.get_mut(find_node_index)?;
+        match prev_node{
+            None => {}
+            Some(prev) => {
+                if(prev.is_empty){
+                    node.no = prev.no;
+                    node.count += prev.count;
+                    self.list.remove(find_node_index-1);
+                }
+            }
+        }
+        return Some(());
+    }
+}
 impl TgD3d12CPUDescriptorHandle {
     fn tg_get_pointer(&self, index: u32) -> D3D12_CPU_DESCRIPTOR_HANDLE {
         return D3D12_CPU_DESCRIPTOR_HANDLE { ptr: self.value.ptr + (index * self.align_size) as usize };
@@ -106,7 +168,7 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
     }
     ///TgDescriptorHandleを返す関数だよ。ただしメモリの場所は適当。Noneの場合、すべてのTgDescriptorHandleを使い切ったことになる。
     pub fn allocate_dynamic_descriptor_handle(&mut self) -> Option<TgDescriptorHandle<heap_type>> {
-        let index = { self.descriptor_controller.lock().unwrap().dynamic_free_list.pop()? };
+        let index = { self.descriptor_controller.lock().unwrap().allocate(1)? };
         Some(self.get_descriptor_handle(index))
     }
     ///これで持ってきたハンドルは連続したメモリにあるよ。ただしメモリの使い回しが出来ないのでなくなったらおしまい。
@@ -143,9 +205,7 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> TgID3D12DescriptorHeap<heap_ty
 impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> Drop for TgDescriptorHandle<heap_type> {
     ///dropする際、free_listにindexを返却してからdropする
     fn drop(&mut self) {
-        if self.index < self.dynamic_descriptor_number {
-            self.descriptor_controller.lock().unwrap().dynamic_free_list.push(self.index);
-        }
+        self.descriptor_controller.lock().unwrap().free(self.index);
     }
 }
 
@@ -157,14 +217,17 @@ impl<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE> Default for TgDescriptorHandle
             heap_type: 0,
             dynamic_descriptor_number: 0,
             index: 0,
-            descriptor_controller: Arc::new(Mutex::new(TgDescriptorController{ dynamic_free_list: vec![], static_position: 0 }))
+            descriptor_controller: Arc::new(Mutex::new(TgDescriptorController::new(512)))
         }
     }
 }
 impl TgDescriptorController {
     ///あとどれくらいHandleを引き出せるかを示す。
-    fn free_item_left(&self) -> usize {
-        self.dynamic_free_list.capacity() - self.dynamic_free_list.len()
+    fn free_item_left(&self) -> u32 {
+        self.list.iter().map(|node| match node.is_empty{
+            true => {node.count}
+            false => {0}
+        }).sum()
     }
 }
 

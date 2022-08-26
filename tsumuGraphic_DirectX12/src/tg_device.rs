@@ -136,7 +136,7 @@ impl TgID3D12Device {
                                     descriptor_heap_type: heap_type,
                                     align_size: align_size,
                                 },
-                                descriptor_controller: Arc::new(Mutex::new(TgDescriptorController { dynamic_free_list: (0..tg_heap_desc.dynamic_descriptors).rev().collect::<Vec<_>>(), static_position: 0 })),
+                                descriptor_controller: Arc::new(Mutex::new(TgDescriptorController::new(tg_heap_desc.dynamic_descriptors))),
                             });
                         }
                         None => { return Err(v); }
