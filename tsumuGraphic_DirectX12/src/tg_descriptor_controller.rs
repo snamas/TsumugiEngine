@@ -5,7 +5,11 @@ use std::ptr::drop_in_place;
 use std::sync::{Arc, Mutex};
 use winapi::shared::minwindef::UINT;
 use winapi::um::d3d12::{D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_DESCRIPTOR_HEAP_FLAGS, D3D12_DESCRIPTOR_HEAP_TYPE, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,D3D12_DESCRIPTOR_HEAP_TYPE_RTV,D3D12_DESCRIPTOR_HEAP_TYPE_DSV,D3D12_GPU_DESCRIPTOR_HANDLE, ID3D12DescriptorHeap};
-
+///作りたいディスクリプタヒープの大きさやらの設定をする構造体
+/// * `dynamic_descriptors` - 動的なディスクリプタ。この場所に格納したディスクリプタはオブジェクトが消えた場合、一緒に消える。
+/// * `static_descriptors` - 静的なディスクリプタ。この場所に格納したディスクリプタはオブジェクトが消えても残り続ける。
+/// * `flags` - [D3D12_DESCRIPTOR_HEAP_FLAGS](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_descriptor_heap_flags)で設定できるフラグ。
+/// * `node_mask` - どのGPUから使用できるかを示す整数。
 pub(crate) struct TgD3d12DescriptorHeapDesc {
     pub(crate) dynamic_descriptors: u32,
     pub(crate) static_descriptors: u32,

@@ -110,7 +110,7 @@ impl Tsumugi3DObject {
         }
         let duplicate_key = tsumugi3dobject_parcel.object_key.clone();
         let p_dist = TsumugiParcelDistributor::new(tsumugi3dobject_parcel);
-        tc.find(CONTROLLER_NAME).unwrap().pickup_channel_sender.send(p_dist.into());
+        tc.find(CONTROLLER_NAME).unwrap().distributor_channel_sender.send(p_dist.into());
         duplicate_key
     }
     ///tsumugi3dObjectプレーンの値を変えるよ。
@@ -122,7 +122,7 @@ impl Tsumugi3DObject {
                 tsumugi3dobject_action: Tsumugi3DObjectAction::Update,
             };
             let p_dist = TsumugiParcelDistributor::new(tsumugi3dobject_parcel);
-            tc.find(CONTROLLER_NAME).unwrap().pickup_channel_sender.send(p_dist.into());
+            tc.find(CONTROLLER_NAME).unwrap().distributor_channel_sender.send(p_dist.into());
             return true;
         }
         return false;
@@ -145,7 +145,7 @@ impl TsumugiObject for TsumugiObjectController {
                         ///その後、そのオブジェクトの管理番号を返すよ。
                         let object_key_distribution = object_hashmap.insert(object.tsumugi3dobject);
                         object.object_key.0.write().unwrap().replace(object_key_distribution);
-                        tp.tp.local_channel_sender.pickup_channel_sender
+                        tp.tp.local_channel_sender.distributor_channel_sender
                             .send(TsumugiParcelDistributor::new(TsumugiObjectConstructor{ object_id: object_key_distribution, object: object.tsumugi3dobject })
                                 .displayname("Object_Spawn!")
                                 .lifetime(TsumugiControllerItemLifeTime::Once)
@@ -156,7 +156,7 @@ impl TsumugiObject for TsumugiObjectController {
                     Tsumugi3DObjectAction::Update => {
                         if let Some(key) = *object.object_key.0.read().unwrap(){
                             object_hashmap.update(object.tsumugi3dobject,key);
-                            tp.tp.local_channel_sender.pickup_channel_sender
+                            tp.tp.local_channel_sender.distributor_channel_sender
                                 .send(TsumugiParcelDistributor::new(TsumugiObjectConstructor{ object_id: key, object: object.tsumugi3dobject })
                                     .displayname("Object_Spawn!")
                                     .lifetime(TsumugiControllerItemLifeTime::Once)
@@ -172,7 +172,7 @@ impl TsumugiObject for TsumugiObjectController {
             })).to_antenna().displayname("recept_object");
         tc.tp.local_channel_sender.recept_channel_sender.send(recept_object.into());
         let dist_object = TsumugiParcelDistributor::new(self.clone()).displayname("object_distributor").lifetime(Eternal);
-        tc.tp.local_channel_sender.pickup_channel_sender.send(dist_object.into());
+        tc.tp.local_channel_sender.distributor_channel_sender.send(dist_object.into());
     }
 }
 ///第一引数にポータルの参照、第二引数にオブジェクトを受け取ったらどうするかが入るよ。
@@ -192,8 +192,8 @@ fn fetch_3dobject(tp:&TsumugiPortal,fetch_func:fn(&u64,&Tsumugi3DObject)){
     tp.find(CONTROLLER_NAME).unwrap().recept_channel_sender.send(connect_fetch.into());
 }
 
-pub fn spown_3d_object_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
-    let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
+pub fn spawn_3d_object_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
+    let mut newtc = tc.spawn(CONTROLLER_NAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiObjectController { object_hashmap: Default::default(), object_key_origin: Arc::new(AtomicU64::new(0)) }),
         Box::new(Camera::new(Translation3::new(0f32,0f32,-3f32), Default::default()))

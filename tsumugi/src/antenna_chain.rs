@@ -11,14 +11,14 @@ use crate::signal::TsumugiSignal;
 macro_rules! antenna_chain {
      ( outputType = $y:ty,$( $x:expr ),+) => {
          TsumugiReceptorChain::<_,$y>::from_receptor(($(
-             $x.spown_receiver(),
+             $x.spawn_receiver(),
          )*),vec![$(
              $x.into(),
          )*])
      };
      ( $( $x:ident),+) => {
          TsumugiReceptorChain::<_,()>::from_receptor(($(
-             $x.spown_receiver(),
+             $x.spawn_receiver(),
          )*),vec![$(
              $x.into(),
          )*])
@@ -27,7 +27,7 @@ macro_rules! antenna_chain {
          let mut antenna_list = Vec::new();
          TsumugiReceptorChain::<_,()>::from_receptor(($(
              {let mut antenna = $x;
-             let recv = antenna.spown_receiver();
+             let recv = antenna.spawn_receiver();
              antenna_list.push(antenna.into());
              recv},
          )*),antenna_list)
@@ -64,9 +64,9 @@ pub enum TsumugiAntennaChainType {
     Next,
 }
 
-pub trait TsumugiSpownReceiver {
+pub trait TsumugiSpawnReceiver {
     type Output;
-    fn spown_receiver(&mut self) -> Self::Output;
+    fn spawn_receiver(&mut self) -> Self::Output;
 }
 
 pub trait TsumugiReceptorChainTrait {
@@ -132,7 +132,7 @@ impl<T: Send + 'static, U: Send + 'static> TsumugiReceptorChain<T, U> {
         self.chain_name = Some(name.to_string());
         self
     }
-    fn spown_receiver(&mut self) -> Receiver<U> {
+    fn spawn_receiver(&mut self) -> Receiver<U> {
         let (sender, receiver): (Sender<U>, Receiver<U>) = mpsc::channel();
         self.sender = Some(sender);
         receiver
@@ -148,9 +148,9 @@ impl<T: Send + 'static, U: Send + 'static> TsumugiReceptorChainTrait for Tsumugi
     }
 }
 
-impl<T: Send + 'static, U: Send + 'static> TsumugiSpownReceiver for TsumugiReceptorChain<T, U> {
+impl<T: Send + 'static, U: Send + 'static> TsumugiSpawnReceiver for TsumugiReceptorChain<T, U> {
     type Output = Receiver<U>;
-    fn spown_receiver(&mut self) -> Self::Output {
+    fn spawn_receiver(&mut self) -> Self::Output {
         let (sender, receiver): (Sender<U>, Receiver<U>) = mpsc::channel();
         self.sender = Some(sender);
         return receiver;
@@ -159,9 +159,9 @@ impl<T: Send + 'static, U: Send + 'static> TsumugiSpownReceiver for TsumugiRecep
 
 impl<T: Send + 'static, U: Send + 'static> TsumugiReceptorChain<T, U> {
     //todo:nextはparcelとTsumugiReceptorChainが同時に来たときに発動
-    fn next<V: Send + 'static>(mut self, mut receptor: impl TsumugiSpownReceiver<Output=Receiver<V>> + Into<TsumugiAntennaType>) -> TsumugiReceptorChain<(Receiver<U>, Receiver<V>), ()> {
-        let parcelreceiver = self.spown_receiver();
-        let connectparcelreceiver = receptor.spown_receiver();
+    fn next<V: Send + 'static>(mut self, mut receptor: impl TsumugiSpawnReceiver<Output=Receiver<V>> + Into<TsumugiAntennaType>) -> TsumugiReceptorChain<(Receiver<U>, Receiver<V>), ()> {
+        let parcelreceiver = self.spawn_receiver();
+        let connectparcelreceiver = receptor.spawn_receiver();
         TsumugiReceptorChain {
             tsumugi_antenna_list: vec![self.into(), receptor.into()],
             parcel: (parcelreceiver, connectparcelreceiver),
@@ -187,7 +187,7 @@ struct Backet2 {
 mod tests {
     use std::any::{Any};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
-    use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType, TsumugiReceptorChainTrait};
+    use crate::antenna_chain::{TsumugiSpawnReceiver, TsumugiAntennaChain, TsumugiAntennaType, TsumugiAntennaChainType, TsumugiReceptorChainTrait};
     use crate::antenna_chain::TsumugiReceptorChain;
     use crate::controller::{TsumugiChannelSenders, TsumugiPortal, TsumugiPortalPlaneLocal, TsumugiControllerItemState};
     use std::sync::{Arc, mpsc, Mutex};
@@ -226,7 +226,7 @@ mod tests {
         fn new_() -> Self {
             let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
             let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
-            let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
+            let tsumugi_channel_senders = TsumugiChannelSenders { distributor_channel_sender: pickup_channel_sender, recept_channel_sender };
 
             TsumugiPortalPlaneLocal::new(tsumugi_channel_senders)
         }
@@ -235,9 +235,9 @@ mod tests {
     #[test]
     fn chaincheck_antenna_only() {
         let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().antenna_name("parcel");
-        let receivertsumugi_pr = tsumugi_pr.spown_receiver();
+        let receivertsumugi_pr = tsumugi_pr.spawn_receiver();
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
-        let receivertb_pr = tb_pr.spown_receiver();
+        let receivertb_pr = tb_pr.spawn_receiver();
         TsumugiReceptorChain::<_, ()>::from_receptor((), vec![]);
         let chain = antenna_chain!(outputType = (i32),tsumugi_pr.clone(),tb_pr.clone());
         let antennachain: TsumugiAntennaChain = chain.into();
@@ -251,9 +251,9 @@ mod tests {
     #[test]
     fn chaincheck_antennachain() {
         let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().antenna_name("parcel");
-        let receivertsumugi_pr = tsumugi_pr.spown_receiver();
+        let receivertsumugi_pr = tsumugi_pr.spawn_receiver();
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
-        let receivertb_pr = tb_pr.spown_receiver();
+        let receivertb_pr = tb_pr.spawn_receiver();
         let mut chain = antenna_chain!(tsumugi_pr.clone(),tb_pr.clone());
         let chain2 = antenna_chain!(tsumugi_pr.clone(),chain);
         let antennachainname = chain2.tsumugi_antenna_list.iter().map(chainname).collect::<Vec<ChainNameEnum>>();
@@ -264,9 +264,9 @@ mod tests {
     #[test]
     fn chaincheck_nextchain() {
         let mut tsumugi_pr = TsumugiParcelReceptorWithChannel::<Parcel>::new().antenna_name("parcel");
-        let receivertsumugi_pr = tsumugi_pr.spown_receiver();
+        let receivertsumugi_pr = tsumugi_pr.spawn_receiver();
         let mut tb_pr = TsumugiParcelReceptorWithChannel::<Backet2>::new();
-        let receivertb_pr = tb_pr.spown_receiver();
+        let receivertb_pr = tb_pr.spawn_receiver();
         let mut chain = antenna_chain!(tsumugi_pr.clone(),tb_pr.clone());
         let chain2 = chain.next(tsumugi_pr.clone());
         let antennachainname = chain2.tsumugi_antenna_list.iter().map(chainname).collect::<Vec<ChainNameEnum>>();

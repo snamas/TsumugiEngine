@@ -80,7 +80,7 @@ pub struct ThreadReceivers {
 
 #[derive(Clone)]
 pub struct TsumugiChannelSenders {
-    pub pickup_channel_sender: Sender<TsumugiDistributor>,
+    pub distributor_channel_sender: Sender<TsumugiDistributor>,
     pub recept_channel_sender: Sender<TsumugiAntennaType>,
 }
 
@@ -128,7 +128,7 @@ impl TsumugiControllerItemLifeTime {
 }
 impl TsumugiChannelSenders{
     pub fn send(&self, parcel:TsumugiDistributor) -> Result<(), SendError<TsumugiDistributor>> {
-        self.pickup_channel_sender.send(parcel)
+        self.distributor_channel_sender.send(parcel)
     }
     pub fn wait(&self, parcel:TsumugiAntennaType) -> Result<(), SendError<TsumugiAntennaType>> {
         self.recept_channel_sender.send(parcel)
@@ -140,7 +140,7 @@ pub trait TsumugiObject {
 
 pub trait TsumugiControllerTrait {
     fn new(tsumuginame: String) -> Box<TsumugiPortal>;
-    fn spown(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiPortal>;
+    fn spawn(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiPortal>;
     fn set_object(&mut self, tsumugi_object:Box<dyn TsumugiObject + Send>);
     fn set_objects(&mut self, tsumugi_object_list: Vec<Box<dyn TsumugiObject + Send>>);
     fn find(&self, Controller_name: &str) -> Option<TsumugiChannelSenders>;
@@ -155,7 +155,7 @@ impl TsumugiControllerTrait for TsumugiPortal {
         let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
         let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
         let (object_sender, object_receiver) = mpsc::channel();
-        let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
+        let tsumugi_channel_senders = TsumugiChannelSenders { distributor_channel_sender: pickup_channel_sender, recept_channel_sender };
         let mut tsumugi_connect_list: Vec<String> = Vec::new();
         let mut tc = Box::new(TsumugiPortal {
             local_channel_sender: tsumugi_channel_senders.clone(),
@@ -174,11 +174,11 @@ impl TsumugiControllerTrait for TsumugiPortal {
         return tc;
     }
 
-    fn spown(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiPortal> {
+    fn spawn(self: &Box<Self>, tsumuginame: String) -> Box<TsumugiPortal> {
         let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
         let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
         let (object_sender, object_receiver) = mpsc::channel();
-        let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
+        let tsumugi_channel_senders = TsumugiChannelSenders { distributor_channel_sender: pickup_channel_sender, recept_channel_sender };
         let mut tsumugi_connect_list: Vec<String> = Vec::new();
         let mut tc = Box::new(TsumugiPortal {
             local_channel_sender: tsumugi_channel_senders.clone(),
@@ -243,7 +243,7 @@ impl TsumugiControllerTrait for TsumugiPortal {
                 tc_thread.thread_loop_antenna_parcel(&mut controll_loop_kit);
                 if let Some(debug_plane) = tc_thread.tp.find("TsumugiDebugWin"){
                     let debugkit = controll_loop_kit.debug(plane_name.clone());
-                    debug_plane.pickup_channel_sender.send(TsumugiParcelDistributor::new(debugkit).lifetime(Once).displayname(plane_name.clone()).into());
+                    debug_plane.distributor_channel_sender.send(TsumugiParcelDistributor::new(debugkit).lifetime(Once).displayname(plane_name.clone()).into());
                 }
             }
         }
@@ -593,7 +593,7 @@ impl TsumugiPortalPlaneLocal {
         }
         let singalState: TsumugiControllerItemState = match &receptsig.on_receive_signal {
             None => { TsumugiControllerItemState::Fulfilled }
-            Some(val) => { val.as_ref()(self) }
+            Some(val) => {val.as_ref()(self) }
         };
         if (receptsig.signallifetime, receptsig.current_state) != (TsumugiControllerItemLifeTime::Once, TsumugiControllerItemState::Fulfilled) {
             receptsig.current_state = singalState;

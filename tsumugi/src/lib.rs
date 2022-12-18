@@ -8,3 +8,4 @@ pub mod parcel_receptor;
 pub mod controller;
 pub mod parcelreceptor_novalue;
 mod test;
+pub mod wait_controller;

@@ -24,7 +24,7 @@ impl TsumugiSignal {
             sender: None,
         }
     }
-    pub fn spown_receiver(&mut self) -> Receiver<Signal> {
+    pub fn spawn_receiver(&mut self) -> Receiver<Signal> {
         let (recept_channel_sender, recept_channnel_receiver): (Sender<Signal>, Receiver<Signal>) = mpsc::channel();
         self.sender = Some(recept_channel_sender);
         recept_channnel_receiver

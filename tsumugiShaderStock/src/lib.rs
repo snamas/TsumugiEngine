@@ -58,7 +58,7 @@ pub struct TsumugiShaderStockController(pub Arc<Mutex<HashMap<&'static str, Hash
 impl TsumugiMaterial {
     pub fn store_material(&self,tc:&TsumugiPortal){
         let material_dist = TsumugiParcelDistributor::new(self.clone()).lifetime(Once).displayname("material_list");
-        tc.find(TSUMUGI_STOCK_MATERIAL_NAME).unwrap().pickup_channel_sender.send(material_dist.into());
+        tc.find(TSUMUGI_STOCK_MATERIAL_NAME).unwrap().distributor_channel_sender.send(material_dist.into());
     }
 }
 
@@ -79,16 +79,15 @@ impl TsumugiObject for TsumugiShaderStockController {
             //todo:ここマテリアルをこのPlaneに置く必要がまるでなくなってしまったよ
             shaderList.lock().unwrap().entry(name).or_insert(HashMap::new()).insert(path,material.clone());
             //マテリアルをそのままクローンして送ると、アンテナに引っかかってまたマテリアルがクローンされるループに引っかかってしまった。
-            tc.tp.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(material.clone()).lifetime(Once).parcelname("re_material").displayname("material").into());
+            tc.tp.local_channel_sender.distributor_channel_sender.send(TsumugiParcelDistributor::new(material.clone()).lifetime(Once).parcelname("re_material").displayname("material").into());
             Fulfilled
         })).to_antenna().displayname("recept_material").lifetime(Eternal);
         tc.tp.local_channel_sender.recept_channel_sender.send(antenna.into());
-        tc.tp.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(self.clone()).lifetime(Eternal).displayname("TsumugiShaderController").into());
-
+        tc.tp.local_channel_sender.distributor_channel_sender.send(TsumugiParcelDistributor::new(self.clone()).lifetime(Eternal).displayname("TsumugiShaderController").into());
     }
 }
-pub fn spown_shader_stock_handler(tc:&Box<TsumugiPortal>) -> Box<TsumugiPortal>{
-    let mut newtc = tc.spown(TSUMUGI_STOCK_MATERIAL_NAME.to_string());
+pub fn spawn_shader_stock_handler(tc:&Box<TsumugiPortal>) -> Box<TsumugiPortal>{
+    let mut newtc = tc.spawn(TSUMUGI_STOCK_MATERIAL_NAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiShaderStockController::default()),
     ]);

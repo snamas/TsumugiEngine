@@ -2,7 +2,7 @@ use std::sync::{mpsc};
 use crate::antenna::{TsumugiAntenna, TsumugiParcelInput};
 use std::any::{TypeId, Any};
 use std::sync::mpsc::{Sender, Receiver};
-use crate::antenna_chain::TsumugiSpownReceiver;
+use crate::antenna_chain::TsumugiSpawnReceiver;
 use crate::controller::{TsumugiPortalPlaneLocal, TsumugiControllerItemState};
 
 #[derive(Clone)]
@@ -46,10 +46,10 @@ impl<T: 'static + Send + Clone> TsumugiParcelReceptorWithChannel<T> {
     }
 }
 
-impl<T: 'static + Send + Clone> TsumugiSpownReceiver for TsumugiParcelReceptorWithChannel<T> {
+impl<T: 'static + Send + Clone> TsumugiSpawnReceiver for TsumugiParcelReceptorWithChannel<T> {
     type Output = Receiver<T>;
 
-    fn spown_receiver(&mut self) -> Self::Output {
+    fn spawn_receiver(&mut self) -> Self::Output {
         let (sender, receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
         self.sender = sender;
         receiver

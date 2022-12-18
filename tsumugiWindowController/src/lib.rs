@@ -39,9 +39,9 @@ const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 720;
 impl TsumugiObject for TsumugiWindowObject {
     fn on_create(&self, tc: &TsumugiPortalPlaneLocal) {
-        let mut globalsender = tc.tp.global_channel_sender.pickup_channel_sender.clone();
+        let mut globalsender = tc.tp.global_channel_sender.distributor_channel_sender.clone();
         let mut globalreceptor = tc.tp.global_channel_sender.recept_channel_sender.clone();
-        let mut localsender = tc.tp.local_channel_sender.pickup_channel_sender.clone();
+        let mut localsender = tc.tp.local_channel_sender.distributor_channel_sender.clone();
         thread::spawn(move || {
             let mut window_handle = TwHWND::new(None,
                                                 Some(
@@ -59,10 +59,12 @@ impl TsumugiObject for TsumugiWindowObject {
                     cpmsg.tw_dispatch_message_w();
                 }
                 if cpmsg.tw_has_wm_quit_message() {
+                    let sender:TsumugiDistributor = TsumugiSignal::new("self_destruct").lifetime(Flash).into();
+                    globalsender.send(sender);
                     break;
                 }
                 tsumugi_key.tk_get_keyboard_state();
-                //2を押した。
+                //wを押した。
                 if tsumugi_key.tk_key_status(87) {
                     let sender:TsumugiDistributor = TsumugiSignal::new("w").lifetime(Flash).into();
                     globalsender.send(sender);
@@ -77,8 +79,8 @@ impl TsumugiObject for TsumugiWindowObject {
     }
 }
 
-pub fn spown_window_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
-    let mut newtc = tc.spown("tsumugiWindowHandle".to_string());
+pub fn spawn_window_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
+    let mut newtc = tc.spawn("tsumugiWindowHandle".to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiWindowObject()),
     ]);

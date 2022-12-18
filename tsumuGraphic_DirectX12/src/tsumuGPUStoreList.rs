@@ -32,6 +32,7 @@ pub struct TsumuGPUStoreList {
 }
 
 impl TsumuGraphicObject {
+    ///モデルデータをTsumugiStockCPUから引っ張ってくる関数。モデルデータをTsumugiStockCPUに流すことで、自動でそのモデルを描画出来るようにする。
     pub fn fetch_figuredata(&self,tc:&TsumugiPortal){
         let thread_list = self.directx_store.list.clone();
         let thread_device = self.tg_device.clone();
@@ -57,7 +58,7 @@ impl TsumuGraphicObject {
         tc.find("TsumugiStockCPU").unwrap().recept_channel_sender.send(figure_antenna.into());
     }
     //todo:この関数。tsumuObjectにあるみたいに向こうの関数から引っ張った方がいいよ～～～～
-    ///マテリアルデータをTsumugiStockMaterialsから引っ張ってくる
+    ///マテリアルデータをTsumugiStockMaterialsから引っ張ってくる関数。マテリアルをTsumugiStockMaterialsに流すことで、自動でそのマテリアルを描画出来るようにする。
     pub fn fetch_materialdata(&self,tc:&TsumugiPortal,descriptor_heap:&mut TgID3D12DescriptorHeapList){
         let thread_list = self.directx_store.list.clone();
         let thread_device = self.tg_device.clone();
@@ -120,7 +121,7 @@ impl TsumuGPUStoreList {
     pub fn debug_GPUStore(&self,tc:&TsumugiPortal){
         let thread_list = self.list.clone();
         let gpu_store_dist = TsumugiParcelDistributor::new(thread_list).displayname("gpu_store").lifetime(TsumugiControllerItemLifeTime::Eternal);
-        tc.local_channel_sender.pickup_channel_sender.send(gpu_store_dist.into());
+        tc.local_channel_sender.distributor_channel_sender.send(gpu_store_dist.into());
     }
     pub(crate) fn draw_figures(&self,tg_command_list:&mut [CpID3D12GraphicsCommandList],camera_material:&mut MaterialCBV){
 

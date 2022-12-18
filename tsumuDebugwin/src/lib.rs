@@ -225,8 +225,8 @@ impl TsumugiObject for TsumguiWindow {
 }
 
 
-pub fn spown_debug_window_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
-    let mut newtc = tc.spown(TSUMUGI_DEBUG_WINDOWS.to_string());
+pub fn spawn_debug_window_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
+    let mut newtc = tc.spawn(TSUMUGI_DEBUG_WINDOWS.to_string());
     newtc.set_objects(vec![
         Box::new(TsumguiWindow {
             objectlist: Arc::new(RwLock::new(Arc::new(Mutex::new(HashMap::default())))),

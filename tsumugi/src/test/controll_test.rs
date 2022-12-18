@@ -2,7 +2,7 @@
 mod tests {
     use std::any::{Any, TypeId};
     use crate::parcel_receptor_with_channel::TsumugiParcelReceptorWithChannel;
-    use crate::antenna_chain::{TsumugiSpownReceiver, TsumugiAntennaType};
+    use crate::antenna_chain::{TsumugiSpawnReceiver, TsumugiAntennaType};
     use crate::antenna_chain::TsumugiReceptorChain;
     use std::collections::{HashMap, HashSet};
     use crate::controller::{DepotHashList, TsumugiAntennaChainHashList, TsumugiControllerApplication, TsumugiPortal, TsumugiChannelSenders, TsumugiObject, TsumugiParcelHashList, TsumugiControllerItemLifeTime, TsumugiControllerItemState, ControllLoopKitStruct, ThreadReceivers, TsumugiPortalPlaneLocal};
@@ -13,6 +13,7 @@ mod tests {
     use crate::parcel_receptor::TsumugiParcelReceptor;
     use crate::antenna::TsumugiAntenna;
     use std::sync::atomic::{AtomicBool, Ordering};
+    use crate::signal::{Signal, TsumugiSignal};
 
     #[derive(Clone)]
     struct Parcel {
@@ -34,7 +35,7 @@ mod tests {
             let (recept_channel_sender, receipt_channnel_receiver) = mpsc::channel();
             let (pickup_channel_sender, pickup_channnel_receiver) = mpsc::channel();
             let (object_sender, object_receiver) = mpsc::channel();
-            let tsumugi_channel_senders = TsumugiChannelSenders { pickup_channel_sender, recept_channel_sender };
+            let tsumugi_channel_senders = TsumugiChannelSenders { distributor_channel_sender: pickup_channel_sender, recept_channel_sender };
             let thread_receivers = ThreadReceivers {
                 distributer: pickup_channnel_receiver,
                 antenna: receipt_channnel_receiver,
@@ -155,7 +156,7 @@ mod tests {
         {
             //parcelを送る（Once）
             let new_parcel = TsumugiParcelDistributor::new(Parcel { package: 10 });
-            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_parcel.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
             assert_eq!(hashmap.hashListCount(), (1, 0, 0, 0));
@@ -199,7 +200,7 @@ mod tests {
         {
             //parcelを送る（Once）
             let new_parcel = TsumugiParcelDistributor::new(Parcel { package: 20 });
-            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_parcel.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
             assert_eq!(*parcelpackage.lock().unwrap(), 51);
@@ -213,7 +214,7 @@ mod tests {
             //parcelを送る（LifeCount(2)）
             let mut new_parcel = TsumugiParcelDistributor::new(Parcel { package: 10 });
             new_parcel.parcellifetime = TsumugiControllerItemLifeTime::LifeCount(2);
-            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_parcel.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<Parcel>());
             assert_eq!(hashmap.hashListCount(), (1, 0, 0, 0));
@@ -306,7 +307,7 @@ mod tests {
         {
             //parcelを送る（Once）
             let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr { package: "ParcelIsReceived".to_string() });
-            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_parcel.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
             assert_eq!(hashmap.hashListCount(), (0, 0, 1, 1));
@@ -315,9 +316,9 @@ mod tests {
         {
             //parcelとbacketを送る（Once）
             let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr { package: "ParcelIsReceived".to_string() });
-            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_parcel.into());
             let mut new_backet = TsumugiParcelDistributor::new(Backet { package: 51 });
-            tsumugi_channel_senders.pickup_channel_sender.send(new_backet.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_backet.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
             assert_eq!(hashmap.hashListCount(), (0, 0, 1, 1));
@@ -326,7 +327,7 @@ mod tests {
         {
             //parcel("pr")を送る（Once）
             let mut new_parcel = TsumugiParcelDistributor::new(ParcelStr { package: "NamedParcelIsReceived".to_string() }).parcelname("pr");
-            tsumugi_channel_senders.pickup_channel_sender.send(new_parcel.into());
+            tsumugi_channel_senders.distributor_channel_sender.send(new_parcel.into());
             tc.execute_tsumugi_nothread(&mut controll_loop_kit);
             let hashmap = controll_loop_kit.checkhashmap(TypeId::of::<ParcelStr>());
             assert_eq!(*parcelpackage.lock().unwrap(), "NamedParcelIsReceived".to_string());

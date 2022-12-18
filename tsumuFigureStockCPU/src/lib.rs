@@ -101,7 +101,7 @@ impl TsumugiStockController {
     }
     fn announce(figure_path:&'static Path,tc:&TsumugiPortal){
         //オブジェクトが生成されたら、生成されたことを「周知」させる
-        tc.local_channel_sender.pickup_channel_sender.send(TsumugiParcelDistributor::new(figure_path).lifetime(TsumugiControllerItemLifeTime::Once).displayname("announce").into());
+        tc.local_channel_sender.distributor_channel_sender.send(TsumugiParcelDistributor::new(figure_path).lifetime(TsumugiControllerItemLifeTime::Once).displayname("announce").into());
     }
 }
 
@@ -120,7 +120,7 @@ impl TsumugiObject for TsumugiStockController {
                 TsumugiControllerItemState::Fulfilled
             })).to_antenna().displayname("recept_object");
         let dist_stock = TsumugiParcelDistributor::new(self.clone()).lifetime(TsumugiControllerItemLifeTime::Eternal).displayname("TsumugiStockController");
-        tc.tp.local_channel_sender.pickup_channel_sender.send(dist_stock.into());
+        tc.tp.local_channel_sender.distributor_channel_sender.send(dist_stock.into());
         tc.tp.local_channel_sender.recept_channel_sender.send(recept_object.into());
     }
 }
@@ -129,13 +129,13 @@ impl TsumugiStock {
         let tsumugi_path = self.clone();
         let path_dist = TsumugiParcelDistributor::new(tsumugi_path);
         //todo:ここ生成が間に合わなくてパニックになるよ
-        tc.find(TSUMUGI_STOCK_CPUNAME).unwrap().pickup_channel_sender.send(path_dist.into());
+        tc.find(TSUMUGI_STOCK_CPUNAME).unwrap().distributor_channel_sender.send(path_dist.into());
     }
 }
 
 
-pub fn spown_figure_stock_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
-    let mut newtc = tc.spown(TSUMUGI_STOCK_CPUNAME.to_string());
+pub fn spawn_figure_stock_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
+    let mut newtc = tc.spawn(TSUMUGI_STOCK_CPUNAME.to_string());
     newtc.set_objects(vec![
         Box::new(TsumugiStockController::default()),
     ]);

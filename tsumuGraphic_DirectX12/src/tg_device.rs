@@ -105,6 +105,9 @@ impl TgID3D12Device {
             }
         }
     }
+    /// # ディスクリプタヒープを作成する関数
+    /// * `heap_type` - 作りたいディスクリプタヒープの種類[D3D12_DESCRIPTOR_HEAP_TYPE](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_descriptor_heap_type)を入れる
+    /// * `tg_heap_desc` - 作りたいディスクリプタヒープの設定を入れるよ。
     pub(crate) fn cp_create_descriptor_heap<const heap_type: D3D12_DESCRIPTOR_HEAP_TYPE>(&self, tg_heap_desc: TgD3d12DescriptorHeapDesc) -> Result<TgID3D12DescriptorHeap<heap_type>, HRESULT> {
         let mut _unknownobj = null_mut();
         let heap_desc = D3D12_DESCRIPTOR_HEAP_DESC {

@@ -73,8 +73,8 @@ impl TsumugiObject for TsumuGraphicObject{
     }
 }
 
-pub fn spown_direct_x12_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
-    let mut newtc = tc.spown(CONTROLLER_NAME.to_string());
+pub fn spawn_direct_x12_handler(tc: &Box<TsumugiPortal>) -> Box<TsumugiPortal> {
+    let mut newtc = tc.spawn(CONTROLLER_NAME.to_string());
     let mut Device = Arc::new(TgID3D12Device::new());
     let mut tg_command_queue = Arc::new(Mutex::new((*Device).cp_create_command_queue(None).unwrap_or_else(|v| { panic!("last OS error: {:?}", Error::last_os_error()) })));
     let mut camera:Camera= Default::default();
