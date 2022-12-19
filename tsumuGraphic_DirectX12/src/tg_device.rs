@@ -428,7 +428,7 @@ impl TgID3D12Device {
                     ImageError::Parameter(msg) => {panic!("入力エラーが{path_str}で発生！詳細:{msg}")}
                     ImageError::Limits(msg) => {panic!("{path_str}のリソースを確保出来なかった！詳細:{msg}")}
                     ImageError::Unsupported(msg) => {panic!("{path_str}はサポートされてない形式だよ！詳細:{msg}")}
-                    ImageError::IoError(msg) => {panic!("環境に起因するバグが{path_str}で起こったよ！詳細:{msg}")}
+                    ImageError::IoError(msg) => {panic!("パスに指定された画像が無いか、環境に起因するバグが{path_str}で起こったよ！詳細:{msg}")}
                 }}
         };
 
