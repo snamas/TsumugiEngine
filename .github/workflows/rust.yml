@@ -19,4 +19,5 @@ jobs:
     - name: Run tests
       run: |
         rustup default 1.60.0
-        cargo test --workspace
+        cd tsumugi
+        cargo test
