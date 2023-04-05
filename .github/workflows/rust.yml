@@ -1,4 +1,4 @@
-name: Rust
+name: tsumugi_test
 
 on:
   push:
