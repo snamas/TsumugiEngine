@@ -36,6 +36,9 @@ imguiを用いたデバッグ用ライブラリ（Windows専用）
 ![ページ_21](https://user-images.githubusercontent.com/43674314/223162378-00c2347e-a929-4c17-970a-da9398aa3384.png)
 ![ページ_22](https://user-images.githubusercontent.com/43674314/223162391-2c0a7d67-2de3-43b3-9785-68cb2d00f415.png)
 
-#### 一部の条件のみをレンダリング時に変えることで、複数の条件を一度に比較することが出来る
+#### レンダラーごとに条件を変えることができるため、複数の条件を一度に比較することが出来る
+##### カメラの場所のみを変えて同時にレンダリング
 ![ページ_23](https://github.com/snamas/TsumugiEngine/assets/43674314/e66ed779-5718-463b-a390-e333888f2007)
+
+##### ディスプレイの解像度のみを変えて同時にレンダリング
 ![ページ_24](https://github.com/snamas/TsumugiEngine/assets/43674314/a2d0af31-3150-41c1-9982-d4ab7a7a3616)
