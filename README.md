@@ -35,3 +35,7 @@ imguiを用いたデバッグ用ライブラリ（Windows専用）
 ![ページ_20](https://user-images.githubusercontent.com/43674314/223162366-4110a19a-0273-43ff-8b9f-04eff662a1a2.png)
 ![ページ_21](https://user-images.githubusercontent.com/43674314/223162378-00c2347e-a929-4c17-970a-da9398aa3384.png)
 ![ページ_22](https://user-images.githubusercontent.com/43674314/223162391-2c0a7d67-2de3-43b3-9785-68cb2d00f415.png)
+
+#### 同じリソースを用いた複数枚の同時レンダリングも可能
+![ページ_23](https://github.com/snamas/TsumugiEngine/assets/43674314/e66ed779-5718-463b-a390-e333888f2007)
+![ページ_24](https://github.com/snamas/TsumugiEngine/assets/43674314/a2d0af31-3150-41c1-9982-d4ab7a7a3616)
